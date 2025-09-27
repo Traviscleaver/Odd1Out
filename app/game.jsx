@@ -1,21 +1,27 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  FlatList,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function Join() {
   const router = useRouter();
+  const [modalVisible, setModalVisible] = useState(false);
 
-  // Timer state
-  const [timeLeft, setTimeLeft] = useState(60); // 60 seconds
+  const [timeLeft, setTimeLeft] = useState(60);
 
-  // Chat states
   const [messages, setMessages] = useState([
     { id: "1", text: "Welcome to the game!" },
     { id: "2", text: "Player1: Ready?" },
   ]);
   const [newMessage, setNewMessage] = useState("");
 
-  // Timer effect
   useEffect(() => {
     if (timeLeft === 0) return;
     const timer = setInterval(() => {
@@ -24,7 +30,6 @@ export default function Join() {
     return () => clearInterval(timer);
   }, [timeLeft]);
 
-  // Handle sending a new chat message
   const sendMessage = () => {
     if (newMessage.trim() === "") return;
     setMessages((prev) => [
@@ -34,26 +39,30 @@ export default function Join() {
     setNewMessage("");
   };
 
+  const quitGame = () => {
+    setModalVisible(false);
+    router.push("/");
+  };
+
   return (
     <View style={styles.container}>
-      {/* Song and Timer Row */}
       <View style={styles.songRow}>
         <Text style={styles.playerTitle}>THE SONG HERE</Text>
         <Text style={styles.timer}>{timeLeft}s</Text>
       </View>
 
-      {/* Chat Box (fills all available space) */}
       <View style={styles.chatBox}>
         <FlatList
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <Text style={styles.chatMessage}>{item.text}</Text>
+            <View style={styles.chatBubble}>
+              <Text style={styles.chatMessage}>{item.text}</Text>
+            </View>
           )}
         />
       </View>
 
-      {/* Input for Chat */}
       <View style={styles.chatInputRow}>
         <TextInput
           style={styles.textInput}
@@ -67,17 +76,49 @@ export default function Join() {
         </TouchableOpacity>
       </View>
 
-      {/* Quit Button */}
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.quitButton}>
+      <TouchableOpacity
+        onPress={() => setModalVisible(true)}
+        style={styles.quitButton}
+      >
         <Text style={styles.buttonText}>Quit Game</Text>
       </TouchableOpacity>
+
+      <Modal
+        transparent={true}
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Are you sure?</Text>
+            <Text style={styles.modalMessage}>
+              Do you really want to quit the game?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "#1ED760" }]}
+                onPress={quitGame}
+              >
+                <Text style={styles.modalButtonText}>Yes</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: "#888" }]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={styles.modalButtonText}>No</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1, // makes whole screen usable
+    flex: 1,
     backgroundColor: "#121212",
     padding: 20,
   },
@@ -98,7 +139,7 @@ const styles = StyleSheet.create({
     color: "#1ED760",
   },
   chatBox: {
-    flex: 1, // expands to take all remaining space
+    flex: 1,
     borderColor: "#1ED760",
     borderWidth: 1,
     borderRadius: 8,
@@ -106,9 +147,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#1e1e1e",
     marginBottom: 15,
   },
+  chatBubble: {
+    borderWidth: 1,
+    borderColor: "#666", // grey border around each message
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    alignSelf: "flex-start",
+    backgroundColor: "#1e1e1e",
+  },
   chatMessage: {
     color: "#fff",
-    marginBottom: 5,
+    fontSize: 16,
   },
   chatInputRow: {
     flexDirection: "row",
@@ -136,5 +187,49 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: "center",
     borderRadius: 8,
+  },
+  buttonText: {
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "80%",
+    backgroundColor: "#1e1e1e",
+    borderRadius: 12,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 10,
+  },
+  modalMessage: {
+    color: "#ccc",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  modalButton: {
+    flex: 1,
+    marginHorizontal: 5,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 });
