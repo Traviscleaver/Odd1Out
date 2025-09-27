@@ -1,0 +1,129 @@
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+
+export default function Join() {
+  const router = useRouter();
+  const [input, setInput] = useState("");
+  const [players, setPlayers] = useState([ 
+    "Player1",
+    "Player2", //this is temp, johnny you need to add the servers available here.
+    "Player3",
+  ]);
+
+  const handleSubmit = () => {
+    if (!input.trim()) {
+      alert("");
+      return;
+    }
+    alert(`You submitted: ${input}`);
+    setInput(""); 
+  };
+
+  const handleJoin = (player) => {
+    alert(`Joining ${player}`);
+  };
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      
+      <Text style={styles.head}>ODD 1 OUT</Text>
+
+      <View style={styles.playersContainer}>
+        <Text style={styles.playerTitle}>LOBBY NAME HERE</Text>
+
+        {players.map((player, index) => (
+          <View key={index} style={styles.playerRow}>
+            <Text style={styles.playerItem}>{player}</Text>
+          </View>
+        ))}
+      </View>
+
+      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+          <Text style={styles.buttons}>START</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.push('/play')}>
+        <Text style={{ color: "#1ED760", marginTop: 10 }}>Cancel</Text>
+      </TouchableOpacity>
+    </ScrollView>
+    
+
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#121212", 
+  },
+  contentContainer: {
+    alignItems: "center",
+    padding: 20, 
+  },
+  head: {
+    fontSize: 50,
+    padding: 20,
+    color: "#FFFFFF",
+    textAlign: "center", 
+  },
+  buttons: {
+    backgroundColor: '#1ED760',
+    textAlign: 'center',
+    fontSize:22,
+    margin: 2,
+    color: '#fff',
+    borderRadius: 8,
+  },
+  playersContainer: {
+    borderWidth: 2,
+    borderColor: "#1ED760", 
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 30,
+    marginBottom: 20,
+    width: "100%",
+  },
+  playerTitle: {
+    fontSize: 25,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  playerRow: {
+    flexDirection: "row", 
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderColor: "#1ED760",
+    borderWidth: 2,
+    borderRadius: 5,
+    padding: 15,
+    marginBottom: 10,
+  },
+  playerItem: {
+    color: "#fff",
+    fontSize: 16,
+    flex: 1, 
+  },
+
+  textInput: {
+    height: 50,
+    width: "100%",
+    borderColor: "#1ED760",
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    color: "#fff",
+    marginBottom: 15,
+    textAlign: "center", 
+  },
+  submitButton: {
+    backgroundColor: "#1ED760",
+    paddingVertical: 15,
+    paddingHorizontal: 60,
+    borderRadius: 8,
+    marginLeft:30,
+    marginRight:30
+  },
+
+});
