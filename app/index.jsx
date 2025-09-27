@@ -2,7 +2,11 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+
+
 export default function Index() {
+
+
   const router = useRouter();
   const [input, setInput] = useState("");
 
@@ -12,10 +16,12 @@ export default function Index() {
       return;
     }
     alert(`You submitted: ${input}`);
-    setInput(""); // clear input
+    setInput(""); 
   };
 
   return (
+
+    
     <View style={styles.container}>
       <Text style={styles.head}>ODD ONE OUT</Text>
 

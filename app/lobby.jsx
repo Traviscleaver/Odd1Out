@@ -11,17 +11,10 @@ export default function Join() {
     "Player3",
   ]);
 
-  const handleSubmit = () => {
-    if (!input.trim()) {
-      alert("");
-      return;
-    }
-    alert(`You submitted: ${input}`);
-    setInput(""); 
-  };
 
   const handleJoin = (player) => {
-    alert(`Joining ${player}`);
+      router.push("/game");
+
   };
 
   return (
@@ -39,11 +32,11 @@ export default function Join() {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.buttons}>START</Text>
+      <TouchableOpacity style={styles.submitButton} onPress={handleJoin}>
+          <Text style={styles.buttons}>START GAME</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={() => router.push('/play')}>
-        <Text style={{ color: "#1ED760", marginTop: 10 }}>Cancel</Text>
+        <Text style={{ color: "#1ED760", marginTop: 10 }}>Leave Lobby</Text>
       </TouchableOpacity>
     </ScrollView>
     

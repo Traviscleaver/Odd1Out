@@ -2,6 +2,8 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
 
+
+
 export default function Index() {
   const router = useRouter();
   const [modalVisible, setModalVisible] = useState(false);
@@ -34,8 +36,8 @@ export default function Index() {
         <Text style={styles.buttonText}>Create Lobby</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButtons}>
-        <Text style={styles.buttonText}>Back</Text>
+      <TouchableOpacity onPress={() => router.back()}>
+        <Text style={{ color: "#1ED760", marginTop: 10 }}>Back</Text>
       </TouchableOpacity>
 
       <Modal
@@ -58,7 +60,7 @@ export default function Index() {
 
             <Text style={{ color: "#fff", marginBottom: 5 }}>Max Players</Text>
             <View style={styles.playersRow}>
-              {[2,3,4,5,6].map(num => (
+              {[3,4,5,6,8,9].map(num => (
                 <TouchableOpacity
                   key={num}
                   style={[styles.playerButton, maxPlayers === num && styles.selectedPlayerButton]}
