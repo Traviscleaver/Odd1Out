@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const clientId = '511ca4811dce4f82a326e93d7c176d10';
-const redirectUri = Platform.OS === 'web' ? 'http://127.0.0.1:8081/callback' : Linking.createURL('odd1out://callback');
+const redirectUri = Platform.OS === 'web' ? 'http://127.0.0.1:8081/callback' : 'odd1out://callback';
 const scopes = 'user-read-private user-read-email';
 
 
