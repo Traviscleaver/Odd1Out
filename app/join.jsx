@@ -1,5 +1,6 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import {
   ScrollView,
   StyleSheet,
@@ -8,11 +9,43 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { db } from "./services/firebase"; // your Firestore config
 
 export default function Join() {
   const router = useRouter();
+  const { lobbyName, gameId, status, isPublic, hostId } = useLocalSearchParams();
   const [input, setInput] = useState("");
-  const [lobbies, setLobbies] = useState([]); // change this array to test
+  const [lobbies, setLobbies] = useState([]);
+
+
+  const getLobbies = async () => {
+    try {
+      const gamesRef = collection(db, "games");
+      const q = query(
+        gamesRef,
+        where("status", "==", "waiting"),
+        where("isPublic", "==", true)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const lobbiesArray = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        lobbiesArray.push({
+          id: doc.id,
+          lobbyName: data.lobbyName,
+          status: data.status,
+        });
+      });
+      setLobbies(lobbiesArray);
+    } catch (error) {
+      console.error("Error fetching lobbies: ", error);
+    }
+  };
+
+  useEffect(() => {
+    getLobbies();
+  }, []);
 
   const handleSubmit = () => {
     if (!input.trim()) {
@@ -20,32 +53,45 @@ export default function Join() {
       return;
     }
     alert(`You submitted: ${input}`);
-    setInput(""); 
+    setInput("");
+    // navigate to game using code input if needed
   };
 
-  const handleJoin = (lobby) => {
-    alert(`Joining ${lobby}`);
-  };
+const handleJoin = () => {
+  router.push({
+    pathname: "/lobby", // target page
+    params: {
+      lobbyName: lobbyName,
+      gameId: gameId,
+      status: status,
+      isPublic: isPublic,
+      hostId: hostId, // make sure spelling matches your local search params
+    },
+  });
+};
+
 
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
     >
-      <Text style={styles.head}>ODD 1 OUT</Text>
+      <Text style={styles.head}>ODD ONE OUT</Text>
 
       <View style={styles.lobbiesContainer}>
-        <Text style={styles.lobbiesTitle}>Active Lobbies</Text>
+        <Text style={styles.lobbiesTitle}>Available Lobbies</Text>
 
         {lobbies.length === 0 ? (
           <Text style={styles.noLobbiesText}>No lobbies found</Text>
         ) : (
-          lobbies.map((lobby, index) => (
-            <View key={index} style={styles.lobbyRow}>
-              <Text style={styles.lobbyItem}>{lobby}</Text>
+          lobbies.map((lobby) => (
+            <View key={lobby.id} style={styles.lobbyRow}>
+              <Text style={styles.lobbyItem}>
+                {lobby.lobbyName} - {lobby.status.toUpperCase()}
+              </Text>
               <TouchableOpacity
                 style={styles.joinButton}
-                onPress={() => handleJoin(lobby)}
+                onPress={() => handleJoin(lobby.id)}
               >
                 <Text style={styles.joinButtonText}>Join</Text>
               </TouchableOpacity>
@@ -76,26 +122,31 @@ export default function Join() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212", 
+    backgroundColor: "#121212",
   },
   contentContainer: {
     alignItems: "center",
-    padding: 20, 
+    padding: 20,
   },
   head: {
     fontSize: 50,
     padding: 20,
     color: "#FFFFFF",
-    textAlign: "center", 
+    textAlign: "center",
   },
   lobbiesContainer: {
-    borderWidth: 2,
-    borderColor: "#1ED760", 
+    borderWidth: 4,
+    borderColor: "#1ED760",
     borderRadius: 12,
     padding: 15,
     marginTop: 30,
     marginBottom: 20,
     width: "100%",
+    shadowColor: "#1ED760",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8,
   },
   lobbiesTitle: {
     fontSize: 25,
@@ -105,7 +156,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   lobbyRow: {
-    flexDirection: "row", 
+    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderColor: "#1ED760",
@@ -117,7 +168,7 @@ const styles = StyleSheet.create({
   lobbyItem: {
     color: "#fff",
     fontSize: 16,
-    flex: 1, 
+    flex: 1,
   },
   joinButton: {
     backgroundColor: "#1ED760",
@@ -146,7 +197,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     color: "#fff",
     marginBottom: 15,
-    textAlign: "center", 
+    textAlign: "center",
   },
   submitButton: {
     backgroundColor: "#1ED760",

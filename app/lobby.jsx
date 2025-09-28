@@ -5,26 +5,23 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 export default function Join() {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const {lobbyName, gameId } = useLocalSearchParams();
-  const [players, setPlayers] = useState([ 
-  ]); 
+  const { lobbyName, gameId, status, isPublic, hostId, maxPlayers } = useLocalSearchParams();
+  const [players, setPlayers] = useState([]); 
 
-  console.log(lobbyName)
-  console.log(gameId)
-  const handleJoin = (player) => {
+  const isHost = userId == hostId;
+
+  const handleJoin = () => {
       router.push("/game");
-
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       
-      <Text style={styles.head}>ODD 1 OUT</Text>
+      <Text style={styles.head}>ODD ONE OUT</Text>
 
-      <View namestyle={styles.playersContainer}>
-        <Text style={styles.playerTitle} ></Text>
-              <Text style={styles.code}>[CODE]</Text>
-        
+      <View style={styles.playersContainer}>
+        <Text style={styles.playerTitle}>{lobbyName}</Text>
+        <Text style={styles.code}>[{gameId}]</Text>
 
         {players.map((player, index) => (
           <View key={index} style={styles.playerRow}>
@@ -33,16 +30,16 @@ export default function Join() {
         ))}
       </View>
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleJoin}>
+      {isHost && (
+        <TouchableOpacity style={styles.submitButton} onPress={handleJoin}>
           <Text style={styles.buttons}>START GAME</Text>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity onPress={() => router.push('/play')}>
         <Text style={{ color: "#1ED760", marginTop: 10, padding:10}}>Leave Lobby</Text>
       </TouchableOpacity>
     </ScrollView>
-    
-
   );
 }
 
@@ -56,6 +53,7 @@ const styles = StyleSheet.create({
     padding: 20, 
   },
   head: {
+    marginTop: 40,
     fontSize: 50,
     padding: 20,
     color: "#FFFFFF",
@@ -64,34 +62,38 @@ const styles = StyleSheet.create({
   buttons: {
     backgroundColor: '#1ED760',
     textAlign: 'center',
-    fontSize:22,
+    fontSize: 22,
     margin: 2,
     color: '#fff',
     borderRadius: 8,
   },
   playersContainer: {
-    borderWidth: 2,
-    borderColor: "#1ED760", 
+    borderWidth: 4,                
+    borderColor: "#1ED760",      
     borderRadius: 12,
     padding: 15,
     marginTop: 30,
     marginBottom: 20,
     width: "100%",
+    shadowColor: "#1ED760",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8, 
   },
   playerTitle: {
-    fontSize: 25,
+    fontSize: 30,
     fontWeight: "bold",
     color: "#fff",
     marginBottom: 10,
     textAlign: "center",
   },
-    code: {
+  code: {
     fontSize: 25,
-    fontWeight: "bold",
     color: "#fff",
     marginBottom: 10,
     textAlign: "center",
-    paddingBottom:10
+    paddingBottom: 10,
   },
   playerRow: {
     flexDirection: "row", 
@@ -124,8 +126,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 60,
     borderRadius: 8,
-    marginLeft:30,
-    marginRight:30
+    marginLeft: 30,
+    marginRight: 30,
   },
-
 });
