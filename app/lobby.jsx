@@ -5,7 +5,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 export default function Join() {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const { lobbyName, gameId, status, isPublic, hostId, maxPlayers } = useLocalSearchParams();
+  const { lobbyName, gameId, status, isPublic, hostId, maxPlayers, userId } = useLocalSearchParams();
   const [players, setPlayers] = useState([]); 
 
   const isHost = userId == hostId;
