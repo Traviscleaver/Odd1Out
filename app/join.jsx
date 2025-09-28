@@ -1,8 +1,17 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { getAuth } from "firebase/auth";
-import { collection, doc, getDoc, getDocs, query, updateDoc, where } from "firebase/firestore";
-import { useEffect, useState } from "react";
-
+import { getAuth, onAuthStateChanged } from "firebase/auth";
+import {
+  arrayUnion,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  onSnapshot,
+  query,
+  updateDoc,
+  where,
+} from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
 import {
   Modal,
   ScrollView,
@@ -16,12 +25,29 @@ import { db } from "./services/firebase"; // your Firestore config
 
 export default function Join() {
   const router = useRouter();
-  const { lobbyName, gameId, status, isPublic, hostId } = useLocalSearchParams();
+  const { lobbyName, gameId, status, isPublic, hostId, maxPlayers, userId } =
+    useLocalSearchParams();
+
   const [input, setInput] = useState("");
   const [lobbies, setLobbies] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
 
+  const [players, setPlayers] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(userId || null);
+  const [addedToPlayers, setAddedToPlayers] = useState(false);
+  const snapshotUnsubRef = useRef(null);
 
+  // 🔹 Get auth user if not passed in params
+  useEffect(() => {
+    if (currentUserId) return;
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) setCurrentUserId(u.uid);
+    });
+    return unsub;
+  }, [currentUserId]);
+
+  // 🔹 Get list of public lobbies
   const getLobbies = async () => {
     try {
       const gamesRef = collection(db, "games");
@@ -33,10 +59,10 @@ export default function Join() {
 
       const querySnapshot = await getDocs(q);
       const lobbiesArray = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
         lobbiesArray.push({
-          id: doc.id,
+          id: docSnap.id,
           lobbyName: data.lobbyName,
           status: data.status,
         });
@@ -51,63 +77,95 @@ export default function Join() {
     getLobbies();
   }, []);
 
-const handleSubmit = async () => {
-  const gameIdInput = input.trim();
-  if (!gameIdInput) {
-    alert("Please enter a Game ID!");
-    return;
-  }
+  // 🔹 Subscribe to players list when in a game
+  useEffect(() => {
+    if (!gameId) return;
 
-  try {
-    const auth = getAuth();
-    const user = auth.currentUser;
-    if (!user) {
-      alert("You must be signed in to join a lobby.");
+    const gameRef = doc(db, "games", gameId);
+    const unsub = onSnapshot(
+      gameRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setPlayers(Array.isArray(data.players) ? data.players : []);
+        }
+      },
+      (err) => console.error("onSnapshot error:", err)
+    );
+
+    snapshotUnsubRef.current = unsub;
+    return () => {
+      if (snapshotUnsubRef.current) snapshotUnsubRef.current();
+      snapshotUnsubRef.current = null;
+    };
+  }, [gameId]);
+
+  // ✅ Add current user once
+  useEffect(() => {
+    if (!gameId || !currentUserId || addedToPlayers) return;
+
+    const addSelf = async () => {
+      try {
+        const gameRef = doc(db, "games", gameId);
+        await updateDoc(gameRef, {
+          players: arrayUnion(currentUserId),
+        });
+        setAddedToPlayers(true);
+      } catch (e) {
+        console.error("Error adding self to players:", e);
+      }
+    };
+
+    addSelf();
+  }, [gameId, currentUserId, addedToPlayers]);
+
+  const handleSubmit = async () => {
+    const gameIdInput = input.trim();
+    if (!gameIdInput) {
+      alert("Please enter a Game ID!");
       return;
     }
 
-    const gameRef = doc(db, "games", gameIdInput);
-    const gameSnap = await getDoc(gameRef);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        alert("You must be signed in to join a lobby.");
+        return;
+      }
 
-    if (!gameSnap.exists()) {
-      alert("Game not found. Check the Game ID and try again.");
-      return;
+      const gameRef = doc(db, "games", gameIdInput);
+      const gameSnap = await getDoc(gameRef);
+
+      if (!gameSnap.exists()) {
+        alert("Game not found. Check the Game ID and try again.");
+        return;
+      }
+
+      // ✅ Append player to array (not map)
+      await updateDoc(gameRef, {
+        players: arrayUnion(user.uid),
+      });
+
+      console.log(`✅ ${user.uid} joined game ${gameIdInput}`);
+
+      router.push({
+        pathname: "/lobby",
+        params: { gameId: gameIdInput },
+      });
+
+      setInput("");
+      setModalVisible(false);
+    } catch (error) {
+      console.error("Error joining game:", error);
+      alert("Failed to join the game. Please try again.");
     }
+  };
 
-    // Add player to the `players` map
-    await updateDoc(gameRef, {
-      [`players.${user.uid}`]: {
-        score: 0,
-        name: user.displayName || "Anonymous",
-      },
-    });
-
-    console.log(`✅ ${user.uid} joined game ${gameIdInput}`);
-
-    // Navigate to lobby page with the joined gameId
+  const handleJoin = (lobbyId) => {
     router.push({
       pathname: "/lobby",
-      params: { gameId: gameIdInput },
-    });
-
-    setInput(""); // clear input
-    setModalVisible(false)
-  } catch (error) {
-    console.error("Error joining game:", error);
-    alert("Failed to join the game. Please try again.");
-  }
-};
-  const handleJoin = () => {
-    router.push({
-      pathname: "/lobby",
-      params: {
-        lobbyName: lobbyName,
-        gameId: gameId,
-        currStatus: status,
-        public: isPublic,
-        hostId: hostId,
-        maxPlayers: maxPlayers,
-      },
+      params: { gameId: lobbyId },
     });
   };
 
@@ -173,7 +231,10 @@ const handleSubmit = async () => {
               value={input}
               onChangeText={setInput}
             />
-            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleSubmit}
+            >
               <Text style={styles.submitButtonText}>Confirm</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -187,13 +248,8 @@ const handleSubmit = async () => {
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    flex: 1,
-    backgroundColor: "#121212",
-  },
-  container: {
-    flex: 1,
-  },
+  wrapper: { flex: 1, backgroundColor: "#121212" },
+  container: { flex: 1 },
   backButton: {
     color: "#1ED760",
     marginTop: 10,
@@ -205,7 +261,7 @@ const styles = StyleSheet.create({
     color: "#1ED760",
     marginTop: 10,
     padding: 20,
-    paddingTop:5,
+    paddingTop: 5,
     fontSize: 20,
     textAlign: "center",
   },
@@ -223,14 +279,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   lobbiesContainer: {
-    borderWidth: 0,
-    borderColor: "#1ED760",
     borderRadius: 12,
     padding: 15,
     marginTop: 30,
     marginBottom: 5,
     width: "100%",
-    elevation: 8,
   },
   lobbiesTitle: {
     fontSize: 25,
@@ -249,11 +302,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
   },
-  lobbyItem: {
-    color: "#fff",
-    fontSize: 16,
-    flex: 1,
-  },
+  lobbyItem: { color: "#fff", fontSize: 16, flex: 1 },
   joinButton: {
     backgroundColor: "#1ED760",
     paddingVertical: 8,

@@ -55,6 +55,7 @@ export default function Index() {
       lobbyName: lobbyName,
       maxPlayers: maxPlayers,
       isPublic: isPublic,
+      players: [user.uid],
       status: "waiting", 
     });
 
