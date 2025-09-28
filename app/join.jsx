@@ -1,15 +1,18 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function Join() {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const [lobbies, setLobbies] = useState([ 
-    "Lobby 1  0/3 players",
-    "Lobby 2  1/2 players", //this is temp, johnny you need to add the servers available here.
-    "Lobby 3  1/4 players",
-  ]);
+  const [lobbies, setLobbies] = useState([]); // change this array to test
 
   const handleSubmit = () => {
     if (!input.trim()) {
@@ -25,21 +28,30 @@ export default function Join() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+    >
       <Text style={styles.head}>ODD 1 OUT</Text>
 
       <View style={styles.lobbiesContainer}>
         <Text style={styles.lobbiesTitle}>Active Lobbies</Text>
 
-        {lobbies.map((lobby, index) => (
-          <View key={index} style={styles.lobbyRow}>
-            <Text style={styles.lobbyItem}>{lobby}</Text>
-            <TouchableOpacity style={styles.joinButton} onPress={() => handleJoin(lobby)}>
-              <Text style={styles.joinButtonText}>Join</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+        {lobbies.length === 0 ? (
+          <Text style={styles.noLobbiesText}>No lobbies found</Text>
+        ) : (
+          lobbies.map((lobby, index) => (
+            <View key={index} style={styles.lobbyRow}>
+              <Text style={styles.lobbyItem}>{lobby}</Text>
+              <TouchableOpacity
+                style={styles.joinButton}
+                onPress={() => handleJoin(lobby)}
+              >
+                <Text style={styles.joinButtonText}>Join</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
       </View>
 
       <TextInput
@@ -53,12 +65,11 @@ export default function Join() {
       <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
         <Text style={styles.submitButtonText}>Join With Code</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/play')}>
+
+      <TouchableOpacity onPress={() => router.push("/play")}>
         <Text style={{ color: "#1ED760", marginTop: 10 }}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
-    
-
   );
 }
 
@@ -120,6 +131,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "bold",
   },
+  noLobbiesText: {
+    color: "#ccc",
+    fontSize: 16,
+    textAlign: "center",
+    paddingVertical: 10,
+  },
   textInput: {
     height: 50,
     width: "100%",
@@ -136,7 +153,6 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     paddingHorizontal: 60,
     borderRadius: 8,
-
   },
   submitButtonText: {
     color: "#fff",

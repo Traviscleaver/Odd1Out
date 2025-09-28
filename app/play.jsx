@@ -1,50 +1,82 @@
-import { useRouter, useLocalSearchParams } from "expo-router";
-import { useState, useEffect } from "react";
-import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { db } from './services/firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { auth } from './services/firebase';
-
+import { useRouter } from "expo-router";
+import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import {
+  Modal,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from "react-native";
+import { auth, db } from "./services/firebase";
 
 export default function Index() {
   const router = useRouter();
-  const { uid } = useLocalSearchParams();
+
+  const [user, setUser] = useState(null); // ✅ track signed-in user
   const [modalVisible, setModalVisible] = useState(false);
   const [lobbyName, setLobbyName] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(3);
   const [isPublic, setIsPublic] = useState(true);
 
+  // ✅ Ensure the user is signed in (anonymously if needed)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        // If not logged in, sign in anonymously
+        const cred = await signInAnonymously(auth);
+        setUser(cred.user);
+      } else {
+        setUser(currentUser);
+      }
+    });
 
+    return unsubscribe;
+  }, []);
 
-  console.log(uid)
-  const handleCreateLobby = async (uid) => {
+  const handleCreateLobby = async () => {
     if (!lobbyName.trim()) {
       alert("Enter a lobby name");
       return;
     }
-    const gameRef = await addDoc(collection(db, 'games'), {
-	    hostId: uid,
-    	    status: "waiting",
-	    createdAt: new Date()
+
+    if (!user) {
+      alert("User not authenticated yet. Try again.");
+      return;
+    }
+
+    const gameRef = await addDoc(collection(db, "games"), {
+      hostId: user.uid,        
+      lobbyName: lobbyName,
+      maxPlayers: maxPlayers,
+      isPublic: isPublic,
+      status: "waiting",
+      createdAt: serverTimestamp(), 
     });
-	  console.log("Game created with ID:", gameRef.id);
 
-
+    console.log("Game created with ID:", gameRef.id);
     setModalVisible(false);
-    //setIsPublic(true);
-    router.push('/lobby');
+    router.push("/lobby");
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.head}>PLAY</Text>
 
-      <TouchableOpacity onPress={() => router.push('/join')} style={styles.buttons}>
+      <TouchableOpacity 
+        onPress={() => router.push("/join")} 
+        style={styles.buttons}
+      >
         <Text style={styles.buttonText}>Join Lobby</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => setModalVisible(true)} style={styles.buttons}>
+      <TouchableOpacity 
+        onPress={() => setModalVisible(true)} 
+        style={styles.buttons}
+      >
         <Text style={styles.buttonText}>Create Lobby</Text>
       </TouchableOpacity>
 
@@ -72,10 +104,13 @@ export default function Index() {
 
             <Text style={{ color: "#fff", marginBottom: 5 }}>Max Players</Text>
             <View style={styles.playersRow}>
-              {[3,4,5,6,8,9].map(num => (
+              {[3, 4, 5, 6, 8, 9].map((num) => (
                 <TouchableOpacity
                   key={num}
-                  style={[styles.playerButton, maxPlayers === num && styles.selectedPlayerButton]}
+                  style={[
+                    styles.playerButton,
+                    maxPlayers === num && styles.selectedPlayerButton,
+                  ]}
                   onPress={() => setMaxPlayers(num)}
                 >
                   <Text style={styles.playerButtonText}>{num}</Text>
@@ -92,14 +127,16 @@ export default function Index() {
               />
             </View>
 
-            <TouchableOpacity style={styles.submitButton} onPress={handleCreateLobby}>
+            <TouchableOpacity 
+              style={styles.submitButton} 
+              onPress={handleCreateLobby}
+            >
               <Text style={styles.submitButtonText}>Create</Text>
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setModalVisible(false)}>
               <Text style={{ color: "#1ED760", marginTop: 10 }}>Cancel</Text>
             </TouchableOpacity>
-
           </View>
         </View>
       </Modal>
@@ -110,9 +147,9 @@ export default function Index() {
 const styles = StyleSheet.create({
   head: { fontSize: 50, paddingBottom: 90, color: "#FFFFFF" },
   container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" },
-  buttons: { backgroundColor: '#1ED760', paddingVertical: 20, paddingHorizontal: 60, margin: 10, borderRadius: 8 },
-  backButtons: { backgroundColor: '#1ED760', paddingVertical: 20, paddingHorizontal: 60, margin: 30, borderRadius: 8 },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+  buttons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 10, borderRadius: 8 },
+  backButtons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 30, borderRadius: 8 },
+  buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.6)" },
   modalContainer: { width: "85%", backgroundColor: "#121212", borderRadius: 12, padding: 20, alignItems: "center" },
   modalTitle: { fontSize: 24, fontWeight: "bold", color: "#fff", marginBottom: 20 },

@@ -1,10 +1,8 @@
 import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
-import { db } from './services/firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { auth } from './services/firebase';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
+import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { auth } from './services/firebase';
 
 export default function Index() {
 
@@ -49,10 +47,8 @@ export default function Index() {
       return;
     }
 
-    router.push({
-      pathname: "/play",
-      params: { uid: user.uid }, // ✅ cleaner param passing
-    });
+  router.push({ pathname: "/play", params: { uid: auth.currentUser.uid } });
+
   }}
   style={styles.buttons}
 >
