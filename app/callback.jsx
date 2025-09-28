@@ -6,7 +6,7 @@ export default function Callback() {
     useEffect(() => {
         if (Platform.OS === 'web') {
             const currentUrl = window.location.href;
-            handleSpotifyCallback(currentUrl);
+            handleSpotifyCallback(currentUrl, () => { window.location.href = "."; });
         } else {
             // mobile
             Linking.getInitialURL().then(url => {

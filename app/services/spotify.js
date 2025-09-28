@@ -97,6 +97,10 @@ export async function getTracks(num = null) {
         if (data === null) {
             return [];
         }
+        else if (data.error) {
+            console.log("Error fetching top tracks:", data.error);
+            return [];
+        }
         let tracks = [];
         for (let item of data.items) {
             // for (item of data.items) {
