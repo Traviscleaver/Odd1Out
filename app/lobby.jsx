@@ -13,13 +13,15 @@ export default function Join() {
   
 
   const handleJoin = () => {
-      router.push("/game");
+     router.push({
+	    pathname: '/game',
+    });
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       
-      <Text style={styles.head}>ODD ONE OUT</Text>
+      <Text style={styles.head}>OFF BEAT</Text>
 
       <View style={styles.playersContainer}>
         <Text style={styles.playerTitle}>{lobbyName}</Text>
@@ -39,7 +41,7 @@ export default function Join() {
       )}
 
       <TouchableOpacity onPress={() => router.push('/play')}>
-        <Text style={{ color: "#1ED760", marginTop: 10, padding:10}}>Leave Lobby</Text>
+        <Text style={styles.backButton}>Leave Lobby</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -47,8 +49,15 @@ export default function Join() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 0.9,
     backgroundColor: "#121212", 
+  },
+  backButton: {
+    color: "#1ED760", 
+    marginTop: 10, 
+    padding:20,
+    paddingBottom:30,
+    fontSize: 20
   },
   contentContainer: {
     alignItems: "center",
@@ -57,6 +66,7 @@ const styles = StyleSheet.create({
   head: {
     marginTop: 40,
     fontSize: 50,
+    fontWeight:"bold",
     padding: 20,
     color: "#FFFFFF",
     textAlign: "center", 
@@ -77,10 +87,6 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginBottom: 20,
     width: "100%",
-    shadowColor: "#1ED760",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
     elevation: 8, 
   },
   playerTitle: {

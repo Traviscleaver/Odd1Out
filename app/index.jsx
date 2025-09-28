@@ -37,7 +37,7 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.head}>ODD ONE OUT</Text>
+      <Text style={styles.head}>OFF BEAT</Text>
 
 <TouchableOpacity
   onPress={() => {
@@ -55,7 +55,7 @@ export default function Index() {
 </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/settings')} style={styles.buttons}>
-        <Text style={styles.buttonText}>Settings</Text>
+        <Text style={styles.buttonText}>Configure</Text>
       </TouchableOpacity>
 
     </View>

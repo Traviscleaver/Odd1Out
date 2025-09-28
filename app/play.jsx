@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { addDoc, collection, getDoc, setDoc, doc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -97,7 +97,7 @@ export default function Index() {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push("/")}>
-        <Text style={{ color: "#1ED760", marginTop: 10 }}>Back</Text>
+        <Text style={styles.backButton}>Back</Text>
       </TouchableOpacity>
 
       <Modal
@@ -151,7 +151,7 @@ export default function Index() {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={{ color: "#1ED760", marginTop: 10 }}>Cancel</Text>
+              <Text style={styles.backButton}>Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -161,10 +161,10 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  head: { fontSize: 50, paddingBottom: 90, color: "#FFFFFF" },
-  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" },
+  head: { fontSize: 50, paddingBottom: 90, color: "#FFFFFF", fontWeight: "bold" },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" },backButton: {color: "#1ED760", marginTop: 10, padding:20,paddingBottom:30,fontSize: 20},
   buttons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 10, borderRadius: 8 },
-  backButtons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 30, borderRadius: 8 },
+  backButton: {color: "#1ED760", marginTop: 10, padding:5,fontSize: 20},
   buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.6)" },
   modalContainer: { width: "85%", backgroundColor: "#121212", borderRadius: 12, padding: 20, alignItems: "center" },
@@ -176,5 +176,5 @@ const styles = StyleSheet.create({
   playerButtonText: { color: "#fff", fontWeight: "bold" },
   switchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: 20, paddingHorizontal: 10 },
   submitButton: { backgroundColor: "#1ED760", paddingVertical: 15, paddingHorizontal: 60, borderRadius: 8 },
-  submitButtonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
+  submitButtonText: { color: "#fff", fontSize: 20, fontWeight: "bold" },
 });
