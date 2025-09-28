@@ -8,7 +8,9 @@ export default function Join() {
   const { lobbyName, gameId, status, isPublic, hostId, maxPlayers, userId } = useLocalSearchParams();
   const [players, setPlayers] = useState([]); 
 
-  const isHost = userId == hostId;
+  const isHost = String(userId) === String(hostId);
+
+  
 
   const handleJoin = () => {
       router.push("/game");
@@ -30,7 +32,7 @@ export default function Join() {
         ))}
       </View>
 
-      {isHost && (
+      {!isHost && (
         <TouchableOpacity style={styles.submitButton} onPress={handleJoin}>
           <Text style={styles.buttons}>START GAME</Text>
         </TouchableOpacity>
