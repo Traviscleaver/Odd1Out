@@ -1,9 +1,10 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { arrayRemove, arrayUnion, collection, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth, db } from "./services/firebase";
+import { getTracks } from "./services/spotify";
 
 export default function Join() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function Join() {
   const snapshotUnsubRef = useRef(null);
 
   const isHost = String(currentUserId) === String(paramHostId);
+  const topTracks = getTracks(); // promise
 
   // Get current user ID if not passed
   useEffect(() => {
@@ -31,12 +33,18 @@ export default function Join() {
 
   // Navigate to game when status changes to playing
   useEffect(() => {
-    if (status === "playing") {
-      router.push({
-        pathname: "/game",
-        params: { gameId, lobbyName },
-      });
+    const func = async () => {
+      if (status === "playing") {
+        const data = { [`players.${currentUserId}.topTracks`]: await topTracks }
+        updateDoc(doc(db, "games", gameId), data, { merge: true });
+        router.push({
+          pathname: "/game",
+          params: { gameId, lobbyName },
+        });
+      }
+
     }
+    func();
   }, [status]);
 
   // If gameId not passed, find game by lobbyName
@@ -113,6 +121,9 @@ export default function Join() {
     try {
       if (gameId && currentUserId) {
         const gameRef = doc(db, "games", gameId);
+        if (players.length === 1) {
+          await deleteDoc(gameRef);
+        }
         await updateDoc(gameRef, {
           players: arrayRemove(currentUserId),
         });
@@ -158,7 +169,7 @@ export default function Join() {
             return (
               <View key={index} style={styles.playerRow}>
                 <Text style={styles.playerItem}>
-                  {`Player ${index + 1}${isMe ? " (You)" : ""}`}
+                  {`Player ${index + 1}${isMe ? " (You)" : ""} `}
                 </Text>
               </View>
             );

@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 
 const clientId = '511ca4811dce4f82a326e93d7c176d10';
 const redirectUri = Platform.OS === 'web' ? 'http://127.0.0.1:8081/callback' : AuthSession.makeRedirectUri({ useProxy: true }); //'odd1out://callback';
-const scopes = 'user-read-private user-read-email';
+const scopes = 'user-read-private user-read-email user-top-read';
 
 
 
@@ -97,7 +97,9 @@ export async function getTracks(num = null) {
         if (data === null) {
             return [];
         }
-        for (item of data.items) {
+        let tracks = [];
+        for (let item of data.items) {
+            // for (item of data.items) {
             let entry = {
                 name: item["album"]["name"],
                 artist: [],
@@ -106,29 +108,31 @@ export async function getTracks(num = null) {
                 // <iframe src="https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC" width="300" height="80" 
                 //   frameborder="0" allowtransparency="true" allow="encrypted-media"> </iframe>
             };
-            for (artist of item["artists"]) {
+            for (let artist of item["artists"]) {
                 entry.artist.push(artist["name"]);
             }
+            tracks.push(entry);
         }
+        return tracks;
     })
 }
 
 async function getTopTracks(num = null) {
     const token = await AsyncStorage.getItem("spotify-token");
     if (!token) return null;
-    let limit = num ? `&limit=${num}` : "";
+    let limit = num != null ? `&limit=${num}` : "";
 
     return fetch('https://api.spotify.com/v1/me/top/tracks' + limit, {
         headers: { Authorization: `Bearer ${token}` },
     })
         .then(res => res.json())
-        .then(tracks => tracks.json());
+        .then(tracks => tracks);
 }
 
 const config = {
     clientId: clientId,
     redirectUri: redirectUri,
-    scopes: ['user-read-email', 'playlist-read-private'],
+    scopes: ['user-read-email', 'playlist-read-private', 'user-top-read'],
     responseType: 'code',
 };
 
