@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
 import {
-  arrayRemove,
-  arrayUnion,
+  deleteField,
   doc,
+  getDoc,
   onSnapshot,
-  updateDoc
+  setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -16,7 +17,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { auth, db } from "./services/firebase";
 
@@ -29,28 +30,29 @@ const FRIENDLY_NAMES = [
 export default function Game() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { gameId: paramGameId, hostId: paramHostId, userId: paramUserId, status: lobbyStatus } = params;
+  const { gameId: paramGameId } = params;
 
   const [gameId, setGameId] = useState(paramGameId || "");
-  const [currentUserId, setCurrentUserId] = useState(paramUserId || null);
-  const [addedToPlayers, setAddedToPlayers] = useState(false);
-  const [status, setStatus] = useState(lobbyStatus || "waiting");
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [playerName, setPlayerName] = useState("");
+  const [gameData, setGameData] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [playerName, setPlayerName] = useState("");
-  const snapshotUnsubRef = useRef(null);
   const flatListRef = useRef(null);
+  const turnTimerRef = useRef(null);
 
-  const isHost = String(paramUserId || currentUserId) === String(paramHostId);
+  const players = gameData?.players || {};
+  const myTurn = currentUserId && players[currentUserId]?.isTurn;
 
   // Assign random friendly name
   useEffect(() => {
     if (!currentUserId || playerName) return;
-    const randomName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
+    const randomName =
+      FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
     setPlayerName(randomName);
   }, [currentUserId]);
 
-  // Listen for auth
+  // Auth listener
   useEffect(() => {
     if (currentUserId) return;
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -59,76 +61,114 @@ export default function Game() {
     return unsub;
   }, [currentUserId]);
 
-  // Subscribe to messages
+  // Subscribe to game updates
   useEffect(() => {
     if (!gameId) return;
     const gameRef = doc(db, "games", gameId);
     const unsub = onSnapshot(gameRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        setStatus(data.status || status);
-        setMessages(Array.isArray(data.messages) ? data.messages : []);
+        setGameData(data);
+        setMessages(data.messages || []);
       }
     });
-    snapshotUnsubRef.current = unsub;
-    return () => snapshotUnsubRef.current && snapshotUnsubRef.current();
+    return unsub;
   }, [gameId]);
 
-  // Add player
+  // Add player to game with turn order
   useEffect(() => {
-    if (!gameId || !currentUserId || addedToPlayers) return;
+    if (!gameId || !currentUserId || !playerName) return;
+
     const addSelf = async () => {
-      try {
-        const gameRef = doc(db, "games", gameId);
-        await updateDoc(gameRef, { players: arrayUnion(currentUserId) });
-        setAddedToPlayers(true);
-      } catch (e) {
-        console.error("Error adding self to players:", e);
+      const gameRef = doc(db, "games", gameId);
+      const snap = await getDoc(gameRef);
+
+      if (!snap.exists()) {
+        // Create new game
+        await setDoc(gameRef, {
+          hostId: currentUserId,
+          status: "waiting",
+          messages: [],
+          players: {
+            [currentUserId]: { name: playerName, isTurn: true },
+          },
+          turnOrder: [currentUserId],
+        });
+      } else {
+        const data = snap.data();
+        const players = data.players || {};
+        const turnOrder = data.turnOrder || Object.keys(players);
+        const someoneHasTurn = Object.values(players).some((p) => p.isTurn);
+
+        if (!turnOrder.includes(currentUserId)) turnOrder.push(currentUserId);
+
+        await updateDoc(gameRef, {
+          [`players.${currentUserId}`]: {
+            name: playerName,
+            isTurn: !someoneHasTurn,
+          },
+          turnOrder,
+        });
       }
     };
+
     addSelf();
-  }, [gameId, currentUserId, addedToPlayers]);
+  }, [gameId, currentUserId, playerName]);
 
-  const handleStartGame = async () => {
-    if (!isHost) return;
-    try {
-      const gameRef = doc(db, "games", gameId);
-      await updateDoc(gameRef, { status: "playing" });
-      setStatus("playing");
-    } catch (error) {
-      console.error("Failed to start game:", error);
-    }
-  };
-
+  // Send message
   const sendMessage = async () => {
-    if (!newMessage.trim() || !currentUserId) return;
-    const messageObj = {
+    if (!newMessage.trim() || !currentUserId || !myTurn) return;
+
+    const gameRef = doc(db, "games", gameId);
+
+    const newMsg = {
       id: Date.now().toString(),
       senderId: currentUserId,
-      senderName: playerName,
-      text: newMessage
+      senderName: players[currentUserId]?.name || playerName,
+      text: newMessage.trim(),
     };
-    try {
-      const gameRef = doc(db, "games", gameId);
-      await updateDoc(gameRef, { messages: arrayUnion(messageObj) });
-      setNewMessage("");
-    } catch (e) {
-      console.error("Error sending message:", e);
-    }
+
+    const updatedMessages = [...messages, newMsg];
+    setNewMessage("");
+
+    await updateDoc(gameRef, { messages: updatedMessages });
+
+    await advanceTurn();
   };
 
-  const leaveLobby = async () => {
-    try {
-      if (gameId && currentUserId) {
-        const gameRef = doc(db, "games", gameId);
-        await updateDoc(gameRef, { players: arrayRemove(currentUserId) });
-      }
-    } catch (e) {
-      console.warn("Error leaving lobby:", e);
-    } finally {
-      router.push("/play");
-    }
+  // Advance turn in strict linear order
+  const advanceTurn = async () => {
+    if (!gameData) return;
+    const { players, turnOrder } = gameData;
+    if (!turnOrder || turnOrder.length === 0) return;
+
+    let currentIndex = turnOrder.findIndex((id) => players[id]?.isTurn);
+    if (currentIndex === -1) currentIndex = 0;
+
+    const nextIndex = (currentIndex + 1) % turnOrder.length;
+
+    const updates = {};
+    turnOrder.forEach((id, idx) => {
+      updates[`players.${id}.isTurn`] = idx === nextIndex;
+    });
+
+    const gameRef = doc(db, "games", gameId);
+    await updateDoc(gameRef, updates);
   };
+
+  // Turn timer
+  useEffect(() => {
+    if (!myTurn) return;
+    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+
+    turnTimerRef.current = setTimeout(() => {
+      if (myTurn) advanceTurn();
+    }, 30000);
+
+    return () => {
+      if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
+    };
+  }, [myTurn]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -137,13 +177,47 @@ export default function Game() {
     }
   }, [messages]);
 
+  // Leave lobby
+  const leaveLobby = async () => {
+    if (!gameId || !currentUserId) return;
+
+    const gameRef = doc(db, "games", gameId);
+    const snap = await getDoc(gameRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const { players, turnOrder } = data;
+
+    const updates = { [`players.${currentUserId}`]: deleteField() };
+
+    // Remove player from turnOrder
+    const newTurnOrder = turnOrder.filter((id) => id !== currentUserId);
+    updates.turnOrder = newTurnOrder;
+
+    // If leaving player had the turn, give it to the next in order
+    if (players[currentUserId]?.isTurn && newTurnOrder.length > 0) {
+      updates[`players.${newTurnOrder[0]}.isTurn`] = true;
+    }
+
+    await updateDoc(gameRef, updates);
+
+    router.push("/play");
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={80}
     >
       <Text style={styles.head}>OFF BEAT</Text>
-      {playerName && <Text style={styles.playerName}>Your name: {playerName}</Text>}
+      {playerName && (
+        <Text style={styles.playerName}>Your name: {playerName}</Text>
+      )}
+
+      <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
+        {myTurn ? "Your turn! Send a message (30s)" : "Waiting for others..."}
+      </Text>
 
       <View style={styles.chatContainer}>
         <FlatList
@@ -153,9 +227,19 @@ export default function Game() {
           renderItem={({ item }) => {
             const isOwn = item.senderId === currentUserId;
             return (
-              <View style={{ marginBottom: 10, alignItems: isOwn ? "flex-end" : "flex-start" }}>
+              <View
+                style={{
+                  marginBottom: 10,
+                  alignItems: isOwn ? "flex-end" : "flex-start",
+                }}
+              >
                 <Text style={styles.senderName}>{item.senderName}</Text>
-                <View style={[styles.chatBubble, isOwn ? styles.ownBubble : styles.otherBubble]}>
+                <View
+                  style={[
+                    styles.chatBubble,
+                    isOwn ? styles.ownBubble : styles.otherBubble,
+                  ]}
+                >
                   <Text style={styles.chatMessage}>{item.text}</Text>
                 </View>
               </View>
@@ -167,22 +251,27 @@ export default function Game() {
 
       <View style={styles.chatInputRow}>
         <TextInput
-          style={styles.textInput}
+          style={[
+            styles.textInput,
+            { borderColor: myTurn ? "#1ED760" : "#555" },
+          ]}
           placeholder="Type a message..."
           placeholderTextColor="#888"
           value={newMessage}
           onChangeText={setNewMessage}
+          editable={myTurn}
         />
-        <TouchableOpacity style={styles.submitButton} onPress={sendMessage}>
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            { backgroundColor: myTurn ? "#1ED760" : "#555" },
+          ]}
+          onPress={sendMessage}
+          disabled={!myTurn || !newMessage.trim()}
+        >
           <Text style={{ color: "#fff", fontWeight: "bold" }}>Send</Text>
         </TouchableOpacity>
       </View>
-
-      {isHost && (
-        <TouchableOpacity style={styles.submitButton} onPress={handleStartGame}>
-          <Text style={styles.buttons}>START GAME</Text>
-        </TouchableOpacity>
-      )}
 
       <TouchableOpacity onPress={leaveLobby}>
         <Text style={styles.backButton}>Leave Lobby</Text>
@@ -192,18 +281,61 @@ export default function Game() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#121212", padding: 20, paddingTop: 65 },
-  head: { fontSize: 50, fontWeight: "bold", padding: 20, color: "#FFFFFF", textAlign: "center" },
-  playerName: { fontSize: 18, color: "#1ED760", marginBottom: 10, textAlign: "center" },
-  chatContainer: { flex: 1, borderWidth:1, borderColor: "#717171", padding:10, borderRadius: 10, justifyContent: "flex-end" },
-  chatBubble: { borderRadius: 10, paddingVertical: 6, paddingHorizontal: 25, maxWidth: "75%" },
+  container: {
+    flex: 1,
+    backgroundColor: "#121212",
+    padding: 20,
+    paddingTop: 65,
+  },
+  head: {
+    fontSize: 50,
+    fontWeight: "bold",
+    padding: 20,
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+  playerName: {
+    fontSize: 18,
+    color: "#1ED760",
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  chatContainer: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#717171",
+    padding: 10,
+    borderRadius: 10,
+    justifyContent: "flex-end",
+  },
+  chatBubble: {
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 25,
+    maxWidth: "75%",
+  },
   ownBubble: { backgroundColor: "#1e1e1e" },
-  otherBubble: { backgroundColor: "#1e1e1e", borderWidth:1, borderColor:"#666" },
+  otherBubble: { backgroundColor: "#1e1e1e", borderWidth: 1, borderColor: "#666" },
   senderName: { fontSize: 12, color: "#aaa", marginBottom: 2 },
   chatMessage: { fontSize: 18, color: "#fff" },
-  chatInputRow: { flexDirection: "row", alignItems: "center", borderColor: "#1ED760", paddingTop: 5, marginTop: 5 },
-  textInput: { flex: 1, height: 50, borderColor: "#1ED760", borderWidth: 2, borderRadius: 8, paddingHorizontal: 15, color: "#fff", marginRight: 10 },
-  submitButton: { backgroundColor: "#1ED760", paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8 },
-  buttons: { textAlign: "center", fontSize: 22, color: "#fff", fontWeight: "bold", marginTop: 10 },
-  backButton: { color: "#1ED760", marginTop: 10, padding: 10, paddingBottom: 40, fontSize: 20, textAlign: "center" }
+  chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 5 },
+  textInput: {
+    flex: 1,
+    height: 50,
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    color: "#fff",
+    marginRight: 10,
+  },
+  submitButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8 },
+  backButton: {
+    color: "#1ED760",
+    marginTop: 10,
+    padding: 10,
+    paddingBottom: 40,
+    fontSize: 20,
+    textAlign: "center",
+  },
 });
+
