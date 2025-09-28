@@ -2,10 +2,14 @@ import * as Linking from 'expo-linking';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AuthSession from 'expo-auth-session';
+
+// yea this is a mess
 
 const clientId = '511ca4811dce4f82a326e93d7c176d10';
-const redirectUri = Platform.OS === 'web' ? 'http://127.0.0.1:8081/callback' : 'odd1out://callback';
+const redirectUri = Platform.OS === 'web' ? 'http://127.0.0.1:8081/callback' : AuthSession.makeRedirectUri({ useProxy: true }); //'odd1out://callback';
 const scopes = 'user-read-private user-read-email';
+
 
 
 function getRandomString(length = 128) {
@@ -29,6 +33,10 @@ async function generateCodeChallenge(verifier) {
 
 /// call this to start the login process, and don't forget to handle the callback
 export async function promptSpotifyLogin() {
+    if (Platform.OS !== 'web') {
+        mobileAuth();
+        return;
+    }
     let codeVerifier = getRandomString();
     const codeChallenge = generateCodeChallenge(codeVerifier);
     await AsyncStorage.setItem("spotify-code-verifier", codeVerifier);
@@ -91,4 +99,36 @@ export async function getTopTracks() {
     })
         .then(res => res.json())
         .then(tracks => tracks.json());
+}
+
+const config = {
+    clientId: clientId,
+    redirectUri: redirectUri,
+    scopes: ['user-read-email', 'playlist-read-private'],
+    responseType: 'code',
+};
+
+const serviceConfiguration = {
+    authorizationEndpoint: 'https://accounts.spotify.com/authorize',
+    tokenEndpoint: 'https://accounts.spotify.com/api/token',
+};
+
+async function mobileAuth() {
+    const request = new AuthSession.AuthRequest(config);
+    let a = await request.promptAsync(serviceConfiguration);
+
+    if (a.params.code) {
+        const tokenResponse = await AuthSession.exchangeCodeAsync(
+            {
+                clientId,
+                code: a.params.code,
+                redirectUri,
+                extraParams: { code_verifier: request.codeVerifier },
+            },
+            serviceConfiguration
+        );
+        // console.log('access token:', tokenResponse.accessToken);
+        setToken(tokenResponse.accessToken);
+        // now you can setToken(tokenResponse.accessToken)
+    }
 }
