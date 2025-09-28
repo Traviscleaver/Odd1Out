@@ -1,12 +1,12 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { promptSpotifyLogin } from "./services/spotify";
+import { checkTokenStatus, clearSpotifyToken, promptSpotifyLogin } from "./services/spotify";
 
 export default function Index() {
   const router = useRouter();
-  const [spotifyToken, setSpotifyToken] = useState(null);
+  const [spotifyTimeRemaining, setSpotifyTime] = useState(0);
+
 
   const handleJoinApple = () => {
     alert("Not Complete!")
@@ -18,28 +18,20 @@ export default function Index() {
 
   const handleJoinSpotify = async () => {
     await promptSpotifyLogin();
-    setSpotifyToken(await AsyncStorage.getItem("spotify-token"));
+    setSpotifyTime(checkTokenStatus());
   };
 
   const handleUnlinkSpotify = async () => {
-    await AsyncStorage.removeItem("spotify-token");
-    setSpotifyToken(null);
+    await clearSpotifyToken();
+    setSpotifyTime(checkTokenStatus());
   }
 
-  useEffect(() => {
-    (async () => {
-      const spotify_token = await AsyncStorage.getItem("spotify-token");
-      if (spotify_token != null) {
-        console.log("spotify token found");
-        setSpotifyToken(spotify_token);
-      }
-    })();
-  }, []);
+  useEffect(() => { setSpotifyTime(checkTokenStatus()) }, []);
 
   return (
     <View style={styles.container}>
       <Text style={styles.head}>SETTINGS</Text>
-      {spotifyToken !== null ?
+      {spotifyTimeRemaining > 0 ?
         <>
           <TouchableOpacity style={styles.submitButtonComplete} onPress={handleUnlinkSpotify}>
             <Text style={styles.submitButtonText}>SPOTIFY LINKED</Text>
@@ -50,7 +42,7 @@ export default function Index() {
           <Text style={styles.submitButtonText}>LINK SPOTIFY</Text>
         </TouchableOpacity>
       }
-      {spotifyToken == null ?
+      {spotifyTimeRemaining <= 0 ?
         <>
           <TouchableOpacity style={styles.submitButtonComplete} onPress={handleUnlinkApple}>
             <Text style={styles.submitButtonText}>APPLE LINKED</Text>

@@ -3,7 +3,7 @@ import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth } from './services/firebase';
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { validateAndRefreshToken } from "./services/spotify";
 
 export default function Index() {
 
@@ -24,9 +24,7 @@ export default function Index() {
       }
     });
 
-    AsyncStorage.getItem("spotify-token").then((token) => {
-      if (token) setSpotifyLinked(true);
-    });
+    validateAndRefreshToken().then(setSpotifyLinked);
 
     return () => unsubscribe();
   }, []);
