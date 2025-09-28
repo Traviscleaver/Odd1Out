@@ -3,12 +3,14 @@ import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth } from './services/firebase';
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function Index() {
 
   const router = useRouter();
-  const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
   const [input, setInput] = useState("");
+  const [spotify_linked, setSpotifyLinked] = useState(false);
 
   useEffect(() => {
     signInAnonymously(auth)
@@ -20,6 +22,10 @@ export default function Index() {
         setUser(currentUser);
         console.log("User ID:", currentUser.uid);
       }
+    });
+
+    AsyncStorage.getItem("spotify-token").then((token) => {
+      if (token) setSpotifyLinked(true);
     });
 
     return () => unsubscribe();
@@ -39,20 +45,25 @@ export default function Index() {
     <View style={styles.container}>
       <Text style={styles.head}>OFF BEAT</Text>
 
-<TouchableOpacity
-  onPress={() => {
-    if (!user) {
-      alert("Signing in... Please wait.");
-      return;
-    }
+      <TouchableOpacity
+        onPress={() => {
+          if (!user) {
+            alert("Signing in... Please wait.");
+            return;
+          }
 
-  router.push({ pathname: "/play", params: { uid: auth.currentUser.uid } });
+          if (!spotify_linked) {
+            alert("Please link your spotify account first.");
+            return;
+          }
 
-  }}
-  style={styles.buttons}
->
-  <Text style={styles.buttonText}>Play</Text>
-</TouchableOpacity>
+          router.push({ pathname: "/play", params: { uid: auth.currentUser.uid } });
+
+        }}
+        style={spotify_linked ? styles.buttons : styles.disabledButton}
+      >
+        <Text style={styles.buttonText}>Play</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/settings')} style={styles.buttons}>
         <Text style={styles.buttonText}>Configure</Text>
@@ -79,6 +90,14 @@ const styles = StyleSheet.create({
   },
   buttons: {
     backgroundColor: '#1ED760',
+    paddingVertical: 20,
+    paddingHorizontal: 60,
+    margin: 10,
+    borderRadius: 8,
+  },
+  disabledButton: {
+    color: '#ccc',
+    backgroundColor: '#888888',
     paddingVertical: 20,
     paddingHorizontal: 60,
     margin: 10,
