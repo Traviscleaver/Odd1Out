@@ -1,26 +1,38 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import { useState, useEffect } from "react";
 import { Modal, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
-
+import { db } from './services/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { auth } from './services/firebase';
 
 
 export default function Index() {
   const router = useRouter();
+  const { uid } = useLocalSearchParams();
   const [modalVisible, setModalVisible] = useState(false);
   const [lobbyName, setLobbyName] = useState("");
-  const [maxPlayers, setMaxPlayers] = useState(2);
+  const [maxPlayers, setMaxPlayers] = useState(3);
   const [isPublic, setIsPublic] = useState(true);
 
-  const handleCreateLobby = () => {
+
+
+  console.log(uid)
+  const handleCreateLobby = async (uid) => {
     if (!lobbyName.trim()) {
       alert("Enter a lobby name");
       return;
     }
+    const gameRef = await addDoc(collection(db, 'games'), {
+	    hostId: uid,
+    	    status: "waiting",
+	    createdAt: new Date()
+    });
+	  console.log("Game created with ID:", gameRef.id);
+
 
     setModalVisible(false);
-    setLobbyName("");
-    setMaxPlayers(2);
-    setIsPublic(true);
+    //setIsPublic(true);
     router.push('/lobby');
   };
 

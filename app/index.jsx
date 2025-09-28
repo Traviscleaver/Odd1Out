@@ -1,14 +1,33 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { db } from './services/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { auth } from './services/firebase';
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-
-
 
 export default function Index() {
 
-
   const router = useRouter();
+  const [user, setUser] = useState(null); //user state for auth
   const [input, setInput] = useState("");
+
+  // Sign in anonymously
+  useEffect(() => {
+    signInAnonymously(auth)
+      .then(() => console.log("Signed in anonymously"))
+      .catch((error) => console.error("Sign-in error:", error));
+
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        console.log("User ID:", currentUser.uid);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
 
   const handleSubmit = () => {
     if (!input.trim()) {
@@ -16,18 +35,29 @@ export default function Index() {
       return;
     }
     alert(`You submitted: ${input}`);
-    setInput(""); 
+    setInput(""); // clear input
   };
 
   return (
-
-    
     <View style={styles.container}>
       <Text style={styles.head}>ODD ONE OUT</Text>
 
-      <TouchableOpacity onPress={() => router.push('/play')} style={styles.buttons}>
-        <Text style={styles.buttonText}>Play</Text>
-      </TouchableOpacity>
+<TouchableOpacity
+  onPress={() => {
+    if (!user) {
+      alert("Signing in... Please wait.");
+      return;
+    }
+
+    router.push({
+      pathname: "/play",
+      params: { uid: user.uid }, // ✅ cleaner param passing
+    });
+  }}
+  style={styles.buttons}
+>
+  <Text style={styles.buttonText}>Play</Text>
+</TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push('/settings')} style={styles.buttons}>
         <Text style={styles.buttonText}>Settings</Text>
