@@ -34,7 +34,7 @@ async function generateCodeChallenge(verifier) {
 /// call this to start the login process, and don't forget to handle the callback
 export async function promptSpotifyLogin() {
     if (Platform.OS !== 'web') {
-        mobileAuth();
+        await mobileAuth();
         return;
     }
     let codeVerifier = getRandomString();
@@ -53,8 +53,8 @@ export async function promptSpotifyLogin() {
     Linking.openURL(authUrl);
 };
 
-function setToken(t) {
-    AsyncStorage.setItem("spotify-token", t);
+async function setToken(t) {
+    await AsyncStorage.setItem("spotify-token", t);
 }
 
 export async function handleSpotifyCallback(url, onComplete = null) {
@@ -152,7 +152,7 @@ async function mobileAuth() {
             serviceConfiguration
         );
         // console.log('access token:', tokenResponse.accessToken);
-        setToken(tokenResponse.accessToken);
+        await setToken(tokenResponse.accessToken);
         // now you can setToken(tokenResponse.accessToken)
     }
 }

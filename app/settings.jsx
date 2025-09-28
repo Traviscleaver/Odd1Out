@@ -6,34 +6,34 @@ import { promptSpotifyLogin } from "./services/spotify";
 
 export default function Index() {
   const router = useRouter();
+  const [spotifyToken, setSpotifyToken] = useState(null);
 
-  const handleJoinApple = (player) => {
+  const handleJoinApple = () => {
     alert("Not Complete!")
   }
 
-  const handleUnlinkApple = (player) => {
+  const handleUnlinkApple = () => {
     alert("Not Complete!")
   }
 
-  const handleJoinSpotify = (player) => {
-    promptSpotifyLogin();
+  const handleJoinSpotify = async () => {
+    await promptSpotifyLogin();
+    setSpotifyToken(await AsyncStorage.getItem("spotify-token"));
   };
 
-  const handleUnlinkSpotify = async (player) => {
-    AsyncStorage.removeItem("spotify-token");
+  const handleUnlinkSpotify = async () => {
+    await AsyncStorage.removeItem("spotify-token");
+    setSpotifyToken(null);
   }
 
-  const [spotifyToken, setSpotifyToken] = useState(null);
   useEffect(() => {
-    const checkSpotifyToken = async () => {
+    (async () => {
       const spotify_token = await AsyncStorage.getItem("spotify-token");
       if (spotify_token != null) {
         console.log("spotify token found");
         setSpotifyToken(spotify_token);
       }
-    };
-
-    checkSpotifyToken();
+    })();
   }, []);
 
   return (
@@ -41,9 +41,9 @@ export default function Index() {
       <Text style={styles.head}>SETTINGS</Text>
       {spotifyToken !== null ?
         <>
-          <Text style={styles.submitButtonComplete}>SPOTIFY LINKED</Text>
-          <TouchableOpacity style={styles.submitButton} onPress={handleUnlinkSpotify}>
-            <Text style={styles.submitButtonText}>UNLINK SPOTIFY</Text>
+          <TouchableOpacity style={styles.submitButtonComplete} onPress={handleUnlinkSpotify}>
+            <Text style={styles.submitButtonText}>SPOTIFY LINKED</Text>
+            {/* <Text style={styles.submitButtonText}>UNLINK SPOTIFY</Text> */}
           </TouchableOpacity>
         </> :
         <TouchableOpacity style={styles.submitButton} onPress={handleJoinSpotify}>
@@ -52,9 +52,9 @@ export default function Index() {
       }
       {spotifyToken == null ?
         <>
-          <Text style={styles.submitButtonComplete}>APPLE LINKED</Text>
-          <TouchableOpacity style={styles.submitButton} onPress={handleUnlinkApple}>
-            <Text style={styles.submitButtonText}>UNLINK APPLE</Text>
+          <TouchableOpacity style={styles.submitButtonComplete} onPress={handleUnlinkApple}>
+            <Text style={styles.submitButtonText}>APPLE LINKED</Text>
+            {/* <Text style={styles.submitButtonText}>UNLINK APPLE</Text> */}
           </TouchableOpacity>
         </> :
         <TouchableOpacity style={styles.submitButton} onPress={handleJoinApple}>
