@@ -1,10 +1,11 @@
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Join() {
   const router = useRouter();
   const [input, setInput] = useState("");
+  const { gameId } = useLocalSearchParams();
   const [players, setPlayers] = useState([ 
     "Player1",
     "Player2"

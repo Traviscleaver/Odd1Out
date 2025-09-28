@@ -16,13 +16,12 @@ import { auth, db } from "./services/firebase";
 export default function Index() {
   const router = useRouter();
 
-  const [user, setUser] = useState(null); // ✅ track signed-in user
+  const [user, setUser] = useState(null); 
   const [modalVisible, setModalVisible] = useState(false);
   const [lobbyName, setLobbyName] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(3);
   const [isPublic, setIsPublic] = useState(true);
 
-  // ✅ Ensure the user is signed in (anonymously if needed)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
@@ -57,9 +56,13 @@ export default function Index() {
       createdAt: serverTimestamp(), 
     });
 
+
     console.log("Game created with ID:", gameRef.id);
     setModalVisible(false);
-    router.push("/lobby");
+    router.push({
+	    pathname: '/lobby',
+	    params: { gameId: gameRef.id },
+    });
   };
 
   return (
@@ -80,7 +83,7 @@ export default function Index() {
         <Text style={styles.buttonText}>Create Lobby</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.back()}>
+      <TouchableOpacity onPress={() => router.push("/index")}>
         <Text style={{ color: "#1ED760", marginTop: 10 }}>Back</Text>
       </TouchableOpacity>
 
