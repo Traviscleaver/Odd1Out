@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth, db } from "./services/firebase";
@@ -155,13 +155,11 @@ export default function Join() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.head}>OFF BEAT</Text>
-
+      <View style={styles.lobbyHeader}>
+        <Text style={styles.playerTitle}>{lobbyName || "Unnamed Lobby"}</Text>
+        <Text style={styles.code}>[{gameId || "no-code"}]</Text>
+      </View>
       <View style={styles.playersContainer}>
-        <View style={styles.lobbyHeader}>
-          <Text style={styles.playerTitle}>{lobbyName || "Unnamed Lobby"}</Text>
-          <Text style={styles.code}>[{gameId || "no-code"}]</Text>
-        </View>
-
         {players.length === 0 ? (
           <Text style={{ color: "#aaa", textAlign: "center" }}>Waiting for players...</Text>
         ) : (
@@ -195,10 +193,10 @@ const styles = StyleSheet.create({
   container: { flex: 0.9, backgroundColor: "#121212" },
   contentContainer: { alignItems: "center", padding: 20 },
   head: { marginTop: 40, fontSize: 50, fontWeight: "bold", padding: 20, color: "#FFFFFF", textAlign: "center" },
-  playersContainer: { borderWidth: 4, borderColor: "#1ED760", borderRadius: 12, padding: 15, marginTop: 30, marginBottom: 20, width: "100%", elevation: 8 },
+  playersContainer: { borderWidth: 0,borderRadius:12, borderColor: "#1ED760", borderTopWidth: 2,borderBottomWidth:2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
-  playerTitle: { fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
-  code: { fontSize: 20, color: "#fff" },
+  playerTitle: { paddingTop:15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
+  code: { paddingTop:15, fontSize: 20, color: "#fff" },
   playerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderColor: "#1ED760", borderWidth: 2, borderRadius: 5, padding: 15, marginBottom: 10 },
   playerItem: { color: "#fff", fontSize: 16, flex: 1 },
   submitButton: { backgroundColor: "#1ED760", paddingVertical: 15, paddingHorizontal: 60, borderRadius: 8, marginLeft: 30, marginRight: 30 },
