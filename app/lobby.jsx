@@ -7,8 +7,7 @@ export default function Join() {
   const [input, setInput] = useState("");
   const [players, setPlayers] = useState([ 
     "Player1",
-    "Player2", //this is temp, johnny you need to add the servers available here.
-    "Player3",
+    "Player2"
   ]);
 
 
@@ -24,6 +23,8 @@ export default function Join() {
 
       <View style={styles.playersContainer}>
         <Text style={styles.playerTitle}>LOBBY NAME HERE</Text>
+              <Text style={styles.code}>[CODE]</Text>
+        
 
         {players.map((player, index) => (
           <View key={index} style={styles.playerRow}>
@@ -35,8 +36,9 @@ export default function Join() {
       <TouchableOpacity style={styles.submitButton} onPress={handleJoin}>
           <Text style={styles.buttons}>START GAME</Text>
       </TouchableOpacity>
+
       <TouchableOpacity onPress={() => router.push('/play')}>
-        <Text style={{ color: "#1ED760", marginTop: 10 }}>Leave Lobby</Text>
+        <Text style={{ color: "#1ED760", marginTop: 10, padding:10}}>Leave Lobby</Text>
       </TouchableOpacity>
     </ScrollView>
     
@@ -83,6 +85,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
   },
+    code: {
+    fontSize: 25,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 10,
+    textAlign: "center",
+    paddingBottom:10
+  },
   playerRow: {
     flexDirection: "row", 
     justifyContent: "space-between",
@@ -98,7 +108,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     flex: 1, 
   },
-
   textInput: {
     height: 50,
     width: "100%",
