@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { handleSpotifyCallback } from '../services/spotify';
+import { handleSpotifyCallback } from './services/spotify';
 import { Linking, Platform } from 'react-native';
 
 export default function Callback() {

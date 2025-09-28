@@ -8,7 +8,7 @@ export default function Index() {
   const router = useRouter();
 
   const handleJoin = (player) => {
-    promptSpotifyLogin();
+    promptSpotifyLogin().finally(() => router.reload());
   };
 
   const [spotifyToken, setSpotifyToken] = useState(null);
