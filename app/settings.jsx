@@ -39,7 +39,7 @@ export default function Index() {
         <TouchableOpacity style={styles.submitButton} onPress={handleJoinApple}>
           <Text style={styles.submitButtonText}>LINK APPLE</Text>
         </TouchableOpacity>}
-      <TouchableOpacity onPress={() => router.back()}>
+      <TouchableOpacity onPress={() => router.push("/")}>
         <Text style={styles.backButton}>Back</Text>
       </TouchableOpacity>
     </View >

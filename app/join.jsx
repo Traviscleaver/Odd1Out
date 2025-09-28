@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   lobbiesContainer: {
-    borderWidth: 4,
+    borderWidth: 0,
     borderColor: "#1ED760",
     borderRadius: 12,
     padding: 15,

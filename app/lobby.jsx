@@ -87,10 +87,6 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginBottom: 20,
     width: "100%",
-    shadowColor: "#1ED760",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
     elevation: 8, 
   },
   playerTitle: {
