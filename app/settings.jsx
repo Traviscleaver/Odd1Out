@@ -11,9 +11,17 @@ export default function Index() {
     alert("Not Complete!")
   }
 
+  const handleUnlinkApple = (player) => {
+    alert("Not Complete!")
+  }
+
   const handleJoinSpotify = (player) => {
-    promptSpotifyLogin().finally(() => router.reload());
+    promptSpotifyLogin();
   };
+
+  const handleUnlinkSpotify = async (player) => {
+    AsyncStorage.removeItem("spotify-token");
+  }
 
   const [spotifyToken, setSpotifyToken] = useState(null);
   useEffect(() => {
@@ -31,26 +39,41 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <Text style={styles.head}>SETTINGS</Text>
-      {spotifyToken !== null ? <Text style={styles.submitButtonComplete}>SPOTIFY LINKED</Text> :
+      {spotifyToken !== null ?
+        <>
+          <Text style={styles.submitButtonComplete}>SPOTIFY LINKED</Text>
+          <TouchableOpacity style={styles.submitButton} onPress={handleUnlinkSpotify}>
+            <Text style={styles.submitButtonText}>UNLINK SPOTIFY</Text>
+          </TouchableOpacity>
+        </> :
         <TouchableOpacity style={styles.submitButton} onPress={handleJoinSpotify}>
           <Text style={styles.submitButtonText}>LINK SPOTIFY</Text>
-        </TouchableOpacity>}
-      {spotifyToken == null ? <Text style={styles.submitButtonComplete}>APPLE LINKED</Text> :
+        </TouchableOpacity>
+      }
+      {spotifyToken == null ?
+        <>
+          <Text style={styles.submitButtonComplete}>APPLE LINKED</Text>
+          <TouchableOpacity style={styles.submitButton} onPress={handleUnlinkApple}>
+            <Text style={styles.submitButtonText}>UNLINK APPLE</Text>
+          </TouchableOpacity>
+        </> :
         <TouchableOpacity style={styles.submitButton} onPress={handleJoinApple}>
           <Text style={styles.submitButtonText}>LINK APPLE</Text>
-        </TouchableOpacity>}
+        </TouchableOpacity>
+      }
       <TouchableOpacity onPress={() => router.push("/")}>
         <Text style={styles.backButton}>Back</Text>
       </TouchableOpacity>
     </View >
-  );}
+  );
+}
 
 
 const styles = StyleSheet.create({
   head: {
     fontSize: 50,
-    paddingBottom:200,
-    fontWeight:"bold",
+    paddingBottom: 200,
+    fontWeight: "bold",
     color: "#FFFFFF"
   },
   container: {
@@ -64,7 +87,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 30,
     color: "#fff",
-    fontSize:16,
+    fontSize: 16,
     fontWeight: "bold"
   },
   submitButtonComplete: {
@@ -75,7 +98,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 30,
     color: "#fff",
-    fontSize:16,
+    fontSize: 16,
     fontWeight: "bold"
   },
   submitButtonText: {
@@ -89,10 +112,10 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   backButton: {
-    color: "#1ED760", 
-    marginTop: 10, 
-    padding:20,
-    paddingBottom:100,
+    color: "#1ED760",
+    marginTop: 10,
+    padding: 20,
+    paddingBottom: 100,
     fontSize: 20
   },
 });
