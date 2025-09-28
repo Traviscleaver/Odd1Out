@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, getDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -25,7 +25,6 @@ export default function Index() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
-        // If not logged in, sign in anonymously
         const cred = await signInAnonymously(auth);
         setUser(cred.user);
       } else {
@@ -52,16 +51,19 @@ export default function Index() {
       lobbyName: lobbyName,
       maxPlayers: maxPlayers,
       isPublic: isPublic,
-      status: "waiting",
-      createdAt: serverTimestamp(), 
+      status: "waiting", 
+      
     });
 
+    const gameSnap = await getDoc(gameRef);
+    const gameData = gameSnap.data();
 
     console.log("Game created with ID:", gameRef.id);
     setModalVisible(false);
     router.push({
 	    pathname: '/lobby',
-	    params: { gameId: gameRef.id },
+      params: { lobbyName: gameData.lobbyName, gameId: gameRef.id },
+
     });
   };
 

@@ -1,17 +1,16 @@
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function Join() {
   const router = useRouter();
   const [input, setInput] = useState("");
-  const { gameId } = useLocalSearchParams();
+  const {lobbyName, gameId } = useLocalSearchParams();
   const [players, setPlayers] = useState([ 
-    "Player1",
-    "Player2"
-  ]);
+  ]); 
 
-
+  console.log(lobbyName)
+  console.log(gameId)
   const handleJoin = (player) => {
       router.push("/game");
 
@@ -22,8 +21,8 @@ export default function Join() {
       
       <Text style={styles.head}>ODD 1 OUT</Text>
 
-      <View style={styles.playersContainer}>
-        <Text style={styles.playerTitle}>LOBBY NAME HERE</Text>
+      <View namestyle={styles.playersContainer}>
+        <Text style={styles.playerTitle} ></Text>
               <Text style={styles.code}>[CODE]</Text>
         
 

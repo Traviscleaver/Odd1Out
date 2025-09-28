@@ -7,10 +7,9 @@ import { auth } from './services/firebase';
 export default function Index() {
 
   const router = useRouter();
-  const [user, setUser] = useState(null); //user state for auth
+  const [user, setUser] = useState(null); 
   const [input, setInput] = useState("");
 
-  // Sign in anonymously
   useEffect(() => {
     signInAnonymously(auth)
       .then(() => console.log("Signed in anonymously"))
@@ -33,7 +32,7 @@ export default function Index() {
       return;
     }
     alert(`You submitted: ${input}`);
-    setInput(""); // clear input
+    setInput("");
   };
 
   return (
