@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { promptSpotifyLogin } from "../services/spotify";
+import { promptSpotifyLogin } from "./services/spotify";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 
