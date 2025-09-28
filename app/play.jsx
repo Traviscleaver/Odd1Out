@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { addDoc, collection, getDoc } from "firebase/firestore";
+import { addDoc, collection, getDoc, setDoc, doc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import {
   Modal,
@@ -12,6 +12,7 @@ import {
   View
 } from "react-native";
 import { auth, db } from "./services/firebase";
+import { generateGameCode } from "./utils/helpers";
 
 export default function Index() {
   const router = useRouter();
@@ -21,6 +22,8 @@ export default function Index() {
   const [lobbyName, setLobbyName] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(3);
   const [isPublic, setIsPublic] = useState(true);
+  const gameId = generateGameCode();
+  const gameRef = doc(db, "games", gameId);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -45,27 +48,35 @@ export default function Index() {
       alert("User not authenticated yet. Try again.");
       return;
     }
-
-    const gameRef = await addDoc(collection(db, "games"), {
+	
+    
+    await setDoc(gameRef, {
       hostId: user.uid,        
       lobbyName: lobbyName,
       maxPlayers: maxPlayers,
       isPublic: isPublic,
       status: "waiting", 
-      
     });
 
     const gameSnap = await getDoc(gameRef);
     const gameData = gameSnap.data();
 
-    console.log("Game created with ID:", gameRef.id);
+    console.log("Game created with ID:", gameId);
     setModalVisible(false);
+
     router.push({
 	    pathname: '/lobby',
-      params: { lobbyName: gameData.lobbyName, gameId: gameRef.id },
-
+	    params: {
+    		lobbyName: gameData.lobbyName,
+    		gameId: gameId,
+    		currStatus: gameData.status,
+    		public: gameData.isPublic,
+    		hostId: gameData.hostId,
+		maxPlayers: maxPlayers,
+	    },
     });
   };
+
 
   return (
     <View style={styles.container}>
@@ -85,7 +96,7 @@ export default function Index() {
         <Text style={styles.buttonText}>Create Lobby</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/index")}>
+      <TouchableOpacity onPress={() => router.push("/")}>
         <Text style={{ color: "#1ED760", marginTop: 10 }}>Back</Text>
       </TouchableOpacity>
 
