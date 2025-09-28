@@ -1,119 +1,204 @@
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  arrayUnion,
+  doc,
+  onSnapshot,
+  updateDoc
+} from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
-  Modal,
+  KeyboardAvoidingView,
+  Platform,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
+import { auth, db } from "./services/firebase";
 
-export default function Join() {
+// Predefined friendly names
+const FRIENDLY_NAMES = [
+  "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
+  "Daisy", "Smiley", "Peanut", "Coco", "Muffin",
+  "Nibbles", "Pumpkin", "Buddy", "Teddy", "Cookie"
+];
+
+export default function Game() {
   const router = useRouter();
-  const [modalVisible, setModalVisible] = useState(false);
+  const params = useLocalSearchParams();
+  const {
+    gameId: paramGameId,
+    hostId: paramHostId,
+    userId: paramUserId,
+    status: lobbyStatus
+  } = params;
 
-  const [timeLeft, setTimeLeft] = useState(60);
-
-  const [messages, setMessages] = useState([
-    { id: "1", text: "Welcome to Odd One Out!" },
-    { id: "2", text: "One of you is an imposter and must guess the song! Goodluck!"}
-
-  ]);
+  const [gameId, setGameId] = useState(paramGameId || "");
+  const [currentUserId, setCurrentUserId] = useState(paramUserId || null);
+  const [addedToPlayers, setAddedToPlayers] = useState(false);
+  const [status, setStatus] = useState(lobbyStatus || "waiting");
+  const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [playerName, setPlayerName] = useState("");
+  const snapshotUnsubRef = useRef(null);
+  const flatListRef = useRef(null);
 
+  const isHost = String(paramUserId || currentUserId) === String(paramHostId);
+
+  // Assign friendly name when userId is available
   useEffect(() => {
-    if (timeLeft === 0) return;
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [timeLeft]);
+    if (!currentUserId || playerName) return;
+    const randomName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
+    setPlayerName(randomName);
+  }, [currentUserId]);
 
-  const sendMessage = () => {
-    if (newMessage.trim() === "") return;
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), text: newMessage },
-    ]);
-    setNewMessage("");
+  // Listen for auth if no userId
+  useEffect(() => {
+    if (currentUserId) return;
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (u) setCurrentUserId(u.uid);
+    });
+    return unsub;
+  }, [currentUserId]);
+
+  // Subscribe to game updates (messages, status)
+  useEffect(() => {
+    if (!gameId) return;
+    const gameRef = doc(db, "games", gameId);
+    const unsub = onSnapshot(gameRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        setStatus(data.status || status);
+        setMessages(Array.isArray(data.messages) ? data.messages : []);
+      }
+    });
+    snapshotUnsubRef.current = unsub;
+    return () => snapshotUnsubRef.current && snapshotUnsubRef.current();
+  }, [gameId]);
+
+  // Add current user to players (once)
+  useEffect(() => {
+    if (!gameId || !currentUserId || addedToPlayers) return;
+    const addSelf = async () => {
+      try {
+        const gameRef = doc(db, "games", gameId);
+        await updateDoc(gameRef, { players: arrayUnion(currentUserId) });
+        setAddedToPlayers(true);
+      } catch (e) {
+        console.error("Error adding self to players:", e);
+      }
+    };
+    addSelf();
+  }, [gameId, currentUserId, addedToPlayers]);
+
+  // Start game (host only)
+  const handleStartGame = async () => {
+    if (!isHost) return;
+    try {
+      const gameRef = doc(db, "games", gameId);
+      await updateDoc(gameRef, { status: "playing" });
+      setStatus("playing");
+    } catch (error) {
+      console.error("Failed to start game:", error);
+    }
   };
 
-  const quitGame = () => {
-    setModalVisible(false);
-    router.push("/");
+  // Send chat message
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !currentUserId) return;
+    const messageObj = {
+      id: Date.now().toString(),
+      senderId: currentUserId,
+      senderName: playerName,
+      text: newMessage
+    };
+    try {
+      const gameRef = doc(db, "games", gameId);
+      await updateDoc(gameRef, { messages: arrayUnion(messageObj) });
+      setNewMessage("");
+    } catch (e) {
+      console.error("Error sending message:", e);
+    }
   };
+
+  // Leave lobby
+  const leaveLobby = async () => {
+    try {
+      if (gameId && currentUserId) {
+        const gameRef = doc(db, "games", gameId);
+        await updateDoc(gameRef, { players: arrayRemove(currentUserId) });
+      }
+    } catch (e) {
+      console.warn("Error leaving lobby:", e);
+    } finally {
+      router.push("/play");
+    }
+  };
+
+  // Auto-scroll chat to bottom when messages update
+  useEffect(() => {
+    if (flatListRef.current && messages.length > 0) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.songRow}>
-        <Text style={styles.playerTitle}>THE SONG HERE</Text>
-        <Text style={styles.timer}>{timeLeft}s</Text>
-      </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <Text style={styles.head}>OFF BEAT</Text>
 
-      <View style={styles.chatBox}>
+      {/* Player name display */}
+      {playerName && (
+        <Text style={styles.playerName}>Your name: {playerName}</Text>
+      )}
+
+      <View style={styles.chatContainer}>
+        {/* Chat messages */}
         <FlatList
+          ref={flatListRef}
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.chatBubble}>
-              <Text style={styles.chatMessage}>{item.text}</Text>
+              <Text style={styles.chatMessage}>
+                {item.senderId === currentUserId ? "You" : item.senderName}: {item.text}
+              </Text>
             </View>
           )}
+          contentContainerStyle={{ paddingBottom: 10 }}
         />
-      </View>
 
-      <View style={styles.chatInputRow}>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Type a message..."
-          placeholderTextColor="#888"
-          value={newMessage}
-          onChangeText={setNewMessage}
-        />
-        <TouchableOpacity style={styles.submitButton} onPress={sendMessage}>
-          <Text style={{ color: "#fff", fontWeight: "bold" }}>Send</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        onPress={() => setModalVisible(true)}
-        style={styles.quitButton}
-      >
-        <Text style={styles.buttonText}>Quit Game</Text>
-      </TouchableOpacity>
-
-      <Modal
-        transparent={true}
-        visible={modalVisible}
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Are you sure?</Text>
-            <Text style={styles.modalMessage}>
-              Do you really want to quit the game?
-            </Text>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "#1ED760" }]}
-                onPress={quitGame}
-              >
-                <Text style={styles.modalButtonText}>Yes</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: "#888" }]}
-                onPress={() => setModalVisible(false)}
-              >
-                <Text style={styles.modalButtonText}>No</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+        {/* Chat input at bottom */}
+        <View style={styles.chatInputRow}>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Type a message..."
+            placeholderTextColor="#888"
+            value={newMessage}
+            onChangeText={setNewMessage}
+          />
+          <TouchableOpacity style={styles.submitButton} onPress={sendMessage}>
+            <Text style={{ color: "#fff", fontWeight: "bold" }}>Send</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
-    </View>
+      </View>
+
+      {/* Start game */}
+      {isHost && (
+        <TouchableOpacity style={styles.submitButton} onPress={handleStartGame}>
+          <Text style={styles.buttons}>START GAME</Text>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity onPress={leaveLobby}>
+        <Text style={styles.backButton}>Leave Lobby</Text>
+      </TouchableOpacity>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -122,52 +207,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#121212",
     padding: 20,
-    paddingTop:65,
-    paddingBottom:40
+    paddingTop: 65
   },
-  songRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  playerTitle: {
-    fontSize: 25,
+  head: {
+    fontSize: 50,
     fontWeight: "bold",
-    color: "#fff",
+    padding: 20,
+    color: "#FFFFFF",
+    textAlign: "center"
   },
-  timer: {
-    fontSize: 20,
-    fontWeight: "bold",
+  playerName: {
+    fontSize: 18,
     color: "#1ED760",
+    marginBottom: 10,
+    textAlign: "center"
   },
-  chatBox: {
+  chatContainer: {
     flex: 1,
-    borderColor: "#1ED760",
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    backgroundColor: "#1e1e1e",
-    marginBottom: 15,
+    justifyContent: "flex-end"
   },
   chatBubble: {
     borderWidth: 1,
-    borderColor: "#666", // grey border around each message
+    borderColor: "#666",
     borderRadius: 10,
     paddingVertical: 6,
     paddingHorizontal: 10,
     marginBottom: 8,
     alignSelf: "flex-start",
-    backgroundColor: "#1e1e1e",
+    backgroundColor: "#1e1e1e"
   },
   chatMessage: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 16
   },
   chatInputRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
+    borderColor: "#1ED760",
+    paddingTop: 5,
+    marginTop: 5
   },
   textInput: {
     flex: 1,
@@ -177,62 +255,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 15,
     color: "#fff",
-    marginRight: 10,
+    marginRight: 10
   },
   submitButton: {
     backgroundColor: "#1ED760",
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 8
   },
-  quitButton: {
-    backgroundColor: "#1ED760",
-    paddingVertical: 15,
-    alignItems: "center",
-    borderRadius: 8,
-  },
-  buttonText: {
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContainer: {
-    width: "80%",
-    backgroundColor: "#1e1e1e",
-    borderRadius: 12,
-    padding: 20,
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 10,
-  },
-  modalMessage: {
-    color: "#ccc",
+  buttons: {
     textAlign: "center",
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-  },
-  modalButton: {
-    flex: 1,
-    marginHorizontal: 5,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  modalButtonText: {
+    fontSize: 22,
     color: "#fff",
     fontWeight: "bold",
+    marginTop: 10
   },
+  backButton: {
+    color: "#1ED760",
+    marginTop: 10,
+    padding: 10,
+    paddingBottom: 40,
+    fontSize: 20,
+    textAlign: "center"
+  }
 });

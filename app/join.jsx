@@ -100,7 +100,7 @@ export default function Join() {
     };
   }, [gameId]);
 
-  // ✅ Add current user once
+
   useEffect(() => {
     if (!gameId || !currentUserId || addedToPlayers) return;
 
