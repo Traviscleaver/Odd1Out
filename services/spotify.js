@@ -58,6 +58,9 @@ function setToken(t) {
 }
 
 export async function handleSpotifyCallback(url, onComplete = null) {
+    if (Platform.OS !== 'web') {
+        return;
+    }
     const code = new URL(url).searchParams.get('code');
     // if (!code) return console.log('no code');
     const verifier = await AsyncStorage.getItem("spotify-code-verifier");
