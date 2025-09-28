@@ -120,7 +120,7 @@ export default function Index() {
 
             <Text style={{ color: "#fff", marginBottom: 5 }}>Max Players</Text>
             <View style={styles.playersRow}>
-              {[3, 4, 5, 6, 8, 9].map((num) => (
+              {[3, 4, 5, 6, 7, 8].map((num) => (
                 <TouchableOpacity
                   key={num}
                   style={[
