@@ -13,7 +13,7 @@ import { db } from "./services/firebase"; // your Firestore config
 
 export default function Join() {
   const router = useRouter();
-  const { lobbyName, gameId, status, isPublic, hostId } = useLocalSearchParams();
+  const { lobbyName, gameId, status, isPublic, hostId, maxPlayers } = useLocalSearchParams();
   const [input, setInput] = useState("");
   const [lobbies, setLobbies] = useState([]);
 
@@ -54,21 +54,22 @@ export default function Join() {
     }
     alert(`You submitted: ${input}`);
     setInput("");
-    // navigate to game using code input if needed
   };
 
 const handleJoin = () => {
-  router.push({
-    pathname: "/lobby", // target page
-    params: {
-      lobbyName: lobbyName,
-      gameId: gameId,
-      status: status,
-      isPublic: isPublic,
-      hostId: hostId, // make sure spelling matches your local search params
-    },
-  });
-};
+    router.push({
+	    pathname: '/lobby',
+	    params: {
+    		lobbyName: lobbyName,
+    		gameId: gameId,
+    		currStatus:status,
+    		public: isPublic,
+    		hostId: hostId,
+		maxPlayers: maxPlayers,
+	    },
+    });
+  };
+
 
 
   return (
@@ -76,7 +77,7 @@ const handleJoin = () => {
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
     >
-      <Text style={styles.head}>ODD ONE OUT</Text>
+      <Text style={styles.head}>OFF BEAT</Text>
 
       <View style={styles.lobbiesContainer}>
         <Text style={styles.lobbiesTitle}>Available Lobbies</Text>
@@ -113,7 +114,7 @@ const handleJoin = () => {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => router.push("/play")}>
-        <Text style={{ color: "#1ED760", marginTop: 10 }}>Cancel</Text>
+        <Text style={styles.backButton}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -124,13 +125,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#121212",
   },
+  backButton: {
+    color: "#1ED760", 
+    marginTop: 10, 
+    padding:20,
+    paddingBottom:30,
+    fontSize: 20
+  },
   contentContainer: {
     alignItems: "center",
     padding: 20,
+    paddingTop:40
   },
   head: {
     fontSize: 50,
-    padding: 20,
+    fontWeight:"bold",
+    paddingTop:30,
     color: "#FFFFFF",
     textAlign: "center",
   },
@@ -142,10 +152,6 @@ const styles = StyleSheet.create({
     marginTop: 30,
     marginBottom: 20,
     width: "100%",
-    shadowColor: "#1ED760",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 10,
     elevation: 8,
   },
   lobbiesTitle: {
