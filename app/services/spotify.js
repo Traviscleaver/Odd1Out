@@ -92,12 +92,33 @@ export async function getUser() {
         .then(res => res.json())
         .then(profile => profile.json());
 }
+export async function getTracks(num = null) {
+    return getTopTracks(num).then(data => {
+        if (data === null) {
+            return [];
+        }
+        for (item of data.items) {
+            let entry = {
+                name: item["album"]["name"],
+                artist: [],
+                image: item["album"]["images"][0]["url"],
+                id: item["id"],
+                // <iframe src="https://open.spotify.com/embed/track/4uLU6hMCjMI75M1A2tKUQC" width="300" height="80" 
+                //   frameborder="0" allowtransparency="true" allow="encrypted-media"> </iframe>
+            };
+            for (artist of item["artists"]) {
+                entry.artist.push(artist["name"]);
+            }
+        }
+    })
+}
 
-export async function getTopTracks() {
+async function getTopTracks(num = null) {
     const token = await AsyncStorage.getItem("spotify-token");
     if (!token) return null;
+    let limit = num ? `&limit=${num}` : "";
 
-    return fetch('https://api.spotify.com/v1/me/top/tracks', {
+    return fetch('https://api.spotify.com/v1/me/top/tracks' + limit, {
         headers: { Authorization: `Bearer ${token}` },
     })
         .then(res => res.json())
