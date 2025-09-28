@@ -17,8 +17,9 @@ export default function Join() {
   const [timeLeft, setTimeLeft] = useState(60);
 
   const [messages, setMessages] = useState([
-    { id: "1", text: "Welcome to the game!" },
-    { id: "2", text: "Player1: Ready?" },
+    { id: "1", text: "Welcome to Odd One Out!" },
+    { id: "2", text: "One of you is an imposter and must guess the song! Goodluck!"}
+
   ]);
   const [newMessage, setNewMessage] = useState("");
 
@@ -121,6 +122,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#121212",
     padding: 20,
+    paddingTop:65,
+    paddingBottom:40
   },
   songRow: {
     flexDirection: "row",

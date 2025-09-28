@@ -1,7 +1,10 @@
+import { useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { promptSpotifyLogin } from "../services/spotify";
 
 export default function Index() {
+  const router = useRouter();
+
    const handleJoin = (player) => {
     promptSpotifyLogin();
     };
@@ -11,6 +14,9 @@ export default function Index() {
       <Text style={styles.head}>SETTINGS</Text>
       <TouchableOpacity style={styles.submitButton} onPress={handleJoin}>
           <Text style={styles.submitButtonText}>LINK SPOTIFY</Text>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()}>
+        <Text style={{ color: "#1ED760", marginTop: 10 }}>Back</Text>
       </TouchableOpacity>
     </View>
   );
@@ -28,7 +34,7 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop:20,
     padding:20,
-    backgroundColor: "#1ED760",
+    backgroundColor: "#db1313ff",
     paddingHorizontal: 60,
     justifyContent: "center",
     borderRadius: 7,
