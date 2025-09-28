@@ -4,7 +4,7 @@ import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapsho
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth, db } from "./services/firebase";
-import { getTracks } from "./services/spotify";
+import * as spotify from "./services/spotify";
 
 export default function Join() {
   const router = useRouter();
@@ -20,7 +20,7 @@ export default function Join() {
   const snapshotUnsubRef = useRef(null);
 
   const isHost = String(currentUserId) === String(paramHostId);
-  const topTracks = getTracks(); // promise
+  const topTracks = spotify.refreshAndGetToken().then(spotify.getTracks); // promise
 
   // Get current user ID if not passed
   useEffect(() => {
@@ -193,10 +193,10 @@ const styles = StyleSheet.create({
   container: { flex: 0.9, backgroundColor: "#121212" },
   contentContainer: { alignItems: "center", padding: 20 },
   head: { marginTop: 40, fontSize: 50, fontWeight: "bold", padding: 20, color: "#FFFFFF", textAlign: "center" },
-  playersContainer: { borderWidth: 0,borderRadius:12, borderColor: "#1ED760", borderTopWidth: 2,borderBottomWidth:2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8 },
+  playersContainer: { borderWidth: 0, borderRadius: 12, borderColor: "#1ED760", borderTopWidth: 2, borderBottomWidth: 2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
-  playerTitle: { paddingTop:15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
-  code: { paddingTop:15, fontSize: 20, color: "#fff" },
+  playerTitle: { paddingTop: 15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
+  code: { paddingTop: 15, fontSize: 20, color: "#fff" },
   playerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderColor: "#1ED760", borderWidth: 2, borderRadius: 5, padding: 15, marginBottom: 10 },
   playerItem: { color: "#fff", fontSize: 16, flex: 1 },
   submitButton: { backgroundColor: "#1ED760", paddingVertical: 15, paddingHorizontal: 60, borderRadius: 8, marginLeft: 30, marginRight: 30 },
