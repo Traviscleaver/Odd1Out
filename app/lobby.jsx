@@ -123,10 +123,11 @@ export default function Join() {
         const gameRef = doc(db, "games", gameId);
         if (players.length === 1) {
           await deleteDoc(gameRef);
+        } else {
+          await updateDoc(gameRef, {
+            players: arrayRemove(currentUserId),
+          });
         }
-        await updateDoc(gameRef, {
-          players: arrayRemove(currentUserId),
-        });
       }
     } catch (e) {
       console.warn("Error removing user from players on leave:", e);
