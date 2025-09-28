@@ -1,131 +1,115 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
-  arrayRemove,
   arrayUnion,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
   updateDoc,
-  where
+  where,
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
-import { auth, db } from "./services/firebase";
+import { db } from "./services/firebase"; // your Firestore config
 
 export default function Join() {
   const router = useRouter();
-  const params = useLocalSearchParams(); // useful for debugging
-  const { lobbyName: paramLobbyName, gameId: paramGameId, hostId: paramHostId, userId: paramUserId } = params;
+  const { lobbyName, gameId, status, isPublic, hostId, maxPlayers, userId } =
+    useLocalSearchParams();
 
-  // UI / state
-  const [lobbyName, setLobbyName] = useState(paramLobbyName || "");
-  const [gameId, setGameId] = useState(paramGameId || "");
+  const [input, setInput] = useState("");
+  const [lobbies, setLobbies] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+
   const [players, setPlayers] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(paramUserId || null);
+  const [currentUserId, setCurrentUserId] = useState(userId || null);
   const [addedToPlayers, setAddedToPlayers] = useState(false);
   const snapshotUnsubRef = useRef(null);
 
-  // helper debug log (remove in production)
-  // console.log("Join params:", params);
-
-  // If userId not passed in params, listen for auth state (anonymous or otherwise)
+  // 🔹 Get auth user if not passed in params
   useEffect(() => {
-    if (currentUserId) return; // already set from params
+    if (currentUserId) return;
+    const auth = getAuth();
     const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        setCurrentUserId(u.uid);
-      }
+      if (u) setCurrentUserId(u.uid);
     });
     return unsub;
   }, [currentUserId]);
 
-  // If we only have lobbyName (not gameId), try to find the game doc by lobbyName & status waiting
+  // 🔹 Get list of public lobbies
+  const getLobbies = async () => {
+    try {
+      const gamesRef = collection(db, "games");
+      const q = query(
+        gamesRef,
+        where("status", "==", "waiting"),
+        where("isPublic", "==", true)
+      );
+
+      const querySnapshot = await getDocs(q);
+      const lobbiesArray = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        lobbiesArray.push({
+          id: docSnap.id,
+          lobbyName: data.lobbyName,
+          status: data.status,
+        });
+      });
+      setLobbies(lobbiesArray);
+    } catch (error) {
+      console.error("Error fetching lobbies: ", error);
+    }
+  };
+
   useEffect(() => {
-    const findByLobbyName = async () => {
-      if (gameId || !lobbyName) return;
+    getLobbies();
+  }, []);
 
-      try {
-        const gamesRef = collection(db, "games");
-        const q = query(gamesRef, where("lobbyName", "==", lobbyName), where("status", "==", "waiting"));
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          // pick first match
-          const docSnap = snap.docs[0];
-          setGameId(docSnap.id);
-          const data = docSnap.data();
-          if (data.lobbyName) setLobbyName(data.lobbyName);
-        } else {
-          // no matching game found — leave lobbyName as-is or show message
-          // console.log("No game found by lobbyName.");
-        }
-      } catch (e) {
-        console.error("Error finding game by lobbyName:", e);
-      }
-    };
-
-    findByLobbyName();
-  }, [lobbyName, gameId]);
-
-  // When we have gameId, subscribe to doc and keep players & lobbyName up-to-date.
-  // Also add current user to the players array once.
+  // 🔹 Subscribe to players list when in a game
   useEffect(() => {
     if (!gameId) return;
 
     const gameRef = doc(db, "games", gameId);
-
-    // Subscribe
     const unsub = onSnapshot(
       gameRef,
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          // defensive: ensure players is an array
-          const playersArray = Array.isArray(data.players) ? data.players : [];
-          setPlayers(playersArray);
-
-          // keep lobbyName in sync with server (if it wasn't set earlier)
-          if (!lobbyName && data.lobbyName) setLobbyName(data.lobbyName);
-        } else {
-          setPlayers([]);
+          setPlayers(Array.isArray(data.players) ? data.players : []);
         }
       },
-      (err) => {
-        console.error("onSnapshot error:", err);
-      }
+      (err) => console.error("onSnapshot error:", err)
     );
 
-    // store unsubscribe so we can call it later (if needed)
     snapshotUnsubRef.current = unsub;
-
     return () => {
       if (snapshotUnsubRef.current) snapshotUnsubRef.current();
       snapshotUnsubRef.current = null;
     };
-    // intentionally depend on gameId only here — players update comes from snapshot
   }, [gameId]);
 
-  // Add current user to game.players once (use separate effect so we don't race with snapshot)
+  // ✅ Add current user once
   useEffect(() => {
     if (!gameId || !currentUserId || addedToPlayers) return;
 
     const addSelf = async () => {
       try {
         const gameRef = doc(db, "games", gameId);
-
-        // add user to players using arrayUnion (idempotent)
         await updateDoc(gameRef, {
           players: arrayUnion(currentUserId),
         });
-
         setAddedToPlayers(true);
       } catch (e) {
         console.error("Error adding self to players:", e);
@@ -135,119 +119,180 @@ export default function Join() {
     addSelf();
   }, [gameId, currentUserId, addedToPlayers]);
 
-  // Optional: remove user from players when leaving (cleanup)
-  const leaveLobby = async () => {
+  const handleSubmit = async () => {
+    const gameIdInput = input.trim();
+    if (!gameIdInput) {
+      alert("Please enter a Game ID!");
+      return;
+    }
+
     try {
-      if (gameId && currentUserId) {
-        const gameRef = doc(db, "games", gameId);
-        await updateDoc(gameRef, {
-          players: arrayRemove ? arrayRemove(currentUserId) : undefined,
-        });
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        alert("You must be signed in to join a lobby.");
+        return;
       }
-    } catch (e) {
-      // arrayRemove may not be available in some older SDK setups; ignore failure
-      console.warn("Error removing user from players on leave:", e);
-    } finally {
-      router.push("/play");
+
+      const gameRef = doc(db, "games", gameIdInput);
+      const gameSnap = await getDoc(gameRef);
+
+      if (!gameSnap.exists()) {
+        alert("Game not found. Check the Game ID and try again.");
+        return;
+      }
+
+      // ✅ Append player to array (not map)
+      await updateDoc(gameRef, {
+        players: arrayUnion(user.uid),
+      });
+
+      console.log(`✅ ${user.uid} joined game ${gameIdInput}`);
+
+      router.push({
+        pathname: "/lobby",
+        params: { gameId: gameIdInput },
+      });
+
+      setInput("");
+      setModalVisible(false);
+    } catch (error) {
+      console.error("Error joining game:", error);
+      alert("Failed to join the game. Please try again.");
     }
   };
 
-  const handleStartGame = () => {
-    // only host should call start — you can check hostId param if needed
+  const handleJoin = (lobbyId) => {
     router.push({
-      pathname: "/game",
-      params: { gameId, lobbyName },
+      pathname: "/lobby",
+      params: { gameId: lobbyId },
     });
   };
 
-  // Render
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.head}>OFF BEAT</Text>
+    <View style={styles.wrapper}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
+      >
+        <Text style={styles.head}>OFF BEAT</Text>
 
-      <View style={styles.playersContainer}>
-        <View style={styles.lobbyHeader}>
-          <Text style={styles.playerTitle}>{lobbyName || "Unnamed Lobby"}</Text>
-          <Text style={styles.code}>[{gameId || "no-code"}]</Text>
-        </View>
+        <View style={styles.lobbiesContainer}>
+          <Text style={styles.lobbiesTitle}>Available Lobbies</Text>
 
-        {players.length === 0 ? (
-          <Text style={{ color: "#aaa", textAlign: "center" }}>Waiting for players...</Text>
-        ) : (
-          players.map((player, index) => {
-            const isMe = String(player) === String(currentUserId);
-            return (
-              <View key={index} style={styles.playerRow}>
-                <Text style={styles.playerItem}>
-                  {`Player ${index + 1}${isMe ? " (You)" : ""}`}
+          {lobbies.length === 0 ? (
+            <Text style={styles.noLobbiesText}>No lobbies found</Text>
+          ) : (
+            lobbies.map((lobby) => (
+              <View key={lobby.id} style={styles.lobbyRow}>
+                <Text style={styles.lobbyItem}>
+                  {lobby.lobbyName} - {lobby.status.toUpperCase()}
                 </Text>
-                {/* If you want to show raw userId for debugging, uncomment: */}
-                {/* <Text style={{color:'#999'}}>{player}</Text> */}
+                <TouchableOpacity
+                  style={styles.joinButton}
+                  onPress={() => handleJoin(lobby.id)}
+                >
+                  <Text style={styles.joinButtonText}>Join</Text>
+                </TouchableOpacity>
               </View>
-            );
-          })
-        )}
+            ))
+          )}
+        </View>
+      </ScrollView>
+
+      {/* FOOTER */}
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.submitButtonText}>Join With Code</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push("/play")}>
+          <Text style={styles.backButtonMain}>Back</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Show START GAME only for host (if hostId param available) */}
-      {String(paramUserId || currentUserId) === String(paramHostId) && (
-        <TouchableOpacity style={styles.submitButton} onPress={handleStartGame}>
-          <Text style={styles.buttons}>START GAME</Text>
-        </TouchableOpacity>
-      )}
-
-      <TouchableOpacity onPress={leaveLobby}>
-        <Text style={styles.backButton}>Leave Lobby</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      {/* MODAL */}
+      <Modal
+        transparent
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Enter Lobby Code</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="ENTER CODE"
+              placeholderTextColor="#aaa"
+              value={input}
+              onChangeText={setInput}
+            />
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleSubmit}
+            >
+              <Text style={styles.submitButtonText}>Confirm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <Text style={styles.backButton}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 0.9,
-    backgroundColor: "#121212",
+  wrapper: { flex: 1, backgroundColor: "#121212" },
+  container: { flex: 1 },
+  backButton: {
+    color: "#1ED760",
+    marginTop: 10,
+    padding: 5,
+    fontSize: 18,
+    textAlign: "center",
+  },
+  backButtonMain: {
+    color: "#1ED760",
+    marginTop: 10,
+    padding: 20,
+    paddingTop: 5,
+    fontSize: 20,
+    textAlign: "center",
   },
   contentContainer: {
     alignItems: "center",
     padding: 20,
+    paddingTop: 40,
+    paddingBottom: 120,
   },
   head: {
-    marginTop: 40,
     fontSize: 50,
     fontWeight: "bold",
-    padding: 20,
+    paddingTop: 30,
     color: "#FFFFFF",
     textAlign: "center",
   },
-  playersContainer: {
-    borderWidth: 0,
-    borderColor: "#1ED760",
+  lobbiesContainer: {
     borderRadius: 12,
     padding: 15,
     marginTop: 30,
-    marginBottom: 20,
+    marginBottom: 5,
     width: "100%",
-    elevation: 8,
   },
-  lobbyHeader: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  playerTitle: {
-    fontSize: 30,
+  lobbiesTitle: {
+    fontSize: 25,
     fontWeight: "bold",
     color: "#fff",
-    marginRight: 10,
+    marginBottom: 10,
     textAlign: "center",
   },
-  code: {
-    fontSize: 20,
-    color: "#fff",
-  },
-  playerRow: {
+  lobbyRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -257,24 +302,78 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
   },
-  playerItem: {
+  lobbyItem: { color: "#fff", fontSize: 16, flex: 1 },
+  joinButton: {
+    backgroundColor: "#1ED760",
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  joinButtonText: {
     color: "#fff",
     fontSize: 16,
-    flex: 1,
+    fontWeight: "bold",
+  },
+  noLobbiesText: {
+    color: "#ccc",
+    fontSize: 16,
+    textAlign: "center",
+    paddingVertical: 10,
+  },
+  textInput: {
+    height: 50,
+    width: "100%",
+    borderColor: "#1ED760",
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    color: "#fff",
+    marginBottom: 15,
+    textAlign: "center",
+    backgroundColor: "#1e1e1e",
   },
   submitButton: {
     backgroundColor: "#1ED760",
     paddingVertical: 15,
     paddingHorizontal: 60,
     borderRadius: 8,
-    marginLeft: 30,
-    marginRight: 30,
+    alignSelf: "center",
   },
-  backButton: {
-    color: "#1ED760",
-    marginTop: 10,
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+    padding: 15,
+    backgroundColor: "#121212",
+    borderTopWidth: 1,
+    borderTopColor: "#333",
+    alignItems: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    fontSize: 20,
+  },
+  modalContent: {
+    backgroundColor: "#222",
+    borderRadius: 12,
+    padding: 20,
+    width: "100%",
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#fff",
+    marginBottom: 15,
     textAlign: "center",
   },
 });
