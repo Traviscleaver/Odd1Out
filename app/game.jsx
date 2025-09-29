@@ -7,6 +7,7 @@ import {
   onSnapshot,
   setDoc,
   updateDoc,
+  runTransaction,
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -24,7 +25,8 @@ import { auth, db } from "./services/firebase";
 const FRIENDLY_NAMES = [
   "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
   "Daisy", "Smiley", "Peanut", "Coco", "Muffin",
-  "Nibbles", "Pumpkin", "Buddy", "Teddy", "Cookie"
+  "Nibbles", "Pumpkin", "Buddy", "Teddy", "Cookie",
+  "Geek", "Doofus", "Zozo"
 ];
 
 export default function Game() {
@@ -89,10 +91,12 @@ export default function Game() {
           hostId: currentUserId,
           status: "waiting",
           messages: [],
+          callVote: 0,
           players: {
             [currentUserId]: { name: playerName, isTurn: true },
           },
           turnOrder: [currentUserId],
+          voteSession: { active: false },
         });
       } else {
         const data = snap.data();
@@ -117,7 +121,7 @@ export default function Game() {
 
   // Send message
   const sendMessage = async () => {
-    if (!newMessage.trim() || !currentUserId || !myTurn) return;
+    if (!newMessage.trim() || !currentUserId) return;
 
     const gameRef = doc(db, "games", gameId);
 
@@ -133,7 +137,9 @@ export default function Game() {
 
     await updateDoc(gameRef, { messages: updatedMessages });
 
-    await advanceTurn();
+    if (!gameData?.voteSession?.active && myTurn) {
+      await advanceTurn();
+    }
   };
 
   // Advance turn in strict linear order
@@ -158,7 +164,7 @@ export default function Game() {
 
   // Turn timer
   useEffect(() => {
-    if (!myTurn) return;
+    if (!myTurn || gameData?.voteSession?.active) return;
     if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
 
     turnTimerRef.current = setTimeout(() => {
@@ -168,7 +174,7 @@ export default function Game() {
     return () => {
       if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
     };
-  }, [myTurn]);
+  }, [myTurn, gameData?.voteSession?.active]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -176,6 +182,101 @@ export default function Game() {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
+
+  /* ----------------- VOTING SYSTEM ----------------- */
+
+  const callForVote = async () => {
+    if (!gameId) return;
+    const gameRef = doc(db, "games", gameId);
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(gameRef);
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+      const totalPlayers = Object.keys(data.players).length;
+      const newCount = (data.callVote || 0) + 1;
+
+      if (newCount / totalPlayers >= 0.5 && !data.voteSession?.active) {
+        await startVote(data.players);
+      } else {
+        transaction.update(gameRef, { callVote: newCount });
+      }
+    });
+  };
+
+  const startVote = async (players) => {
+    const gameRef = doc(db, "games", gameId);
+    const initialVotes = {};
+    const voted = {};
+    Object.keys(players).forEach((pid) => {
+      initialVotes[pid] = 0;
+      voted[pid] = false;
+    });
+    initialVotes["skip"] = 0;
+
+    await updateDoc(gameRef, {
+      callVote: 0,
+      "voteSession": {
+        active: true,
+        votes: initialVotes,
+        voted: voted,
+      },
+    });
+  };
+
+  const castVote = async (targetId) => {
+    if (!gameId || !currentUserId) return;
+    const gameRef = doc(db, "games", gameId);
+
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(gameRef);
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+      if (!data.voteSession?.active) return;
+      if (data.voteSession.voted[currentUserId]) return;
+
+      const votes = data.voteSession.votes;
+      const voted = data.voteSession.voted;
+
+      votes[targetId] = (votes[targetId] || 0) + 1;
+      voted[currentUserId] = true;
+
+      transaction.update(gameRef, {
+        "voteSession.votes": votes,
+        "voteSession.voted": voted,
+      });
+    });
+  };
+
+  const endVote = async () => {
+    if (!gameId) return;
+    const gameRef = doc(db, "games", gameId);
+    const snap = await getDoc(gameRef);
+    if (!snap.exists()) return;
+
+    const { players, voteSession } = snap.data();
+    const totalPlayers = Object.keys(players).length;
+
+    let maxId = null, maxVotes = 0;
+    for (const [pid, count] of Object.entries(voteSession.votes)) {
+      if (count > maxVotes) {
+        maxVotes = count;
+        maxId = pid;
+      }
+    }
+
+    const updates = { "voteSession.active": false };
+
+    if (maxId !== "skip" && maxVotes / totalPlayers >= 0.5) {
+      updates[`players.${maxId}`] = deleteField();
+      updates.turnOrder = Object.keys(players).filter((p) => p !== maxId);
+    }
+
+    await updateDoc(gameRef, updates);
+  };
+
+  /* ------------------------------------------------- */
 
   // Leave lobby
   const leaveLobby = async () => {
@@ -190,11 +291,9 @@ export default function Game() {
 
     const updates = { [`players.${currentUserId}`]: deleteField() };
 
-    // Remove player from turnOrder
     const newTurnOrder = turnOrder.filter((id) => id !== currentUserId);
     updates.turnOrder = newTurnOrder;
 
-    // If leaving player had the turn, give it to the next in order
     if (players[currentUserId]?.isTurn && newTurnOrder.length > 0) {
       updates[`players.${newTurnOrder[0]}.isTurn`] = true;
     }
@@ -216,7 +315,11 @@ export default function Game() {
       )}
 
       <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
-        {myTurn ? "Your turn! Send a message (30s)" : "Waiting for others..."} 
+        {gameData?.voteSession?.active
+          ? "Voting phase in progress..."
+          : myTurn
+          ? "Your turn! Send a message (30s)"
+          : "Waiting for others..."}
       </Text>
 
       <View style={styles.chatContainer}>
@@ -259,7 +362,7 @@ export default function Game() {
           placeholderTextColor="#888"
           value={newMessage}
           onChangeText={setNewMessage}
-          editable={myTurn}
+          editable={myTurn || gameData?.voteSession?.active}
         />
         <TouchableOpacity
           style={[
@@ -267,11 +370,42 @@ export default function Game() {
             { backgroundColor: myTurn ? "#1ED760" : "#555" },
           ]}
           onPress={sendMessage}
-          disabled={!myTurn || !newMessage.trim()}
+          disabled={!newMessage.trim()}
         >
           <Text style={{ color: "#fff", fontWeight: "bold" }}>SEND</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Voting Buttons for Demo */}
+      {!gameData?.voteSession?.active && (
+        <TouchableOpacity onPress={callForVote}>
+          <Text style={{ color: "#1ED760", marginTop: 10, textAlign: "center" }}>
+            Call for Vote
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {gameData?.voteSession?.active && (
+        <View>
+          {Object.keys(players).map((pid) => (
+            <TouchableOpacity key={pid} onPress={() => castVote(pid)}>
+              <Text style={{ color: "#FF5555", textAlign: "center", marginTop: 5 }}>
+                Vote {players[pid].name}
+              </Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity onPress={() => castVote("skip")}>
+            <Text style={{ color: "#999", textAlign: "center", marginTop: 5 }}>
+              Skip Vote
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={endVote}>
+            <Text style={{ color: "#1ED760", textAlign: "center", marginTop: 10 }}>
+              End Voting
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <TouchableOpacity onPress={leaveLobby}>
         <Text style={styles.backButton}>QUIT</Text>
@@ -289,7 +423,7 @@ const styles = StyleSheet.create({
   },
   head: {
     fontSize: 50,
-    fontFamily: 'Orbitron-Medium',
+    fontFamily: "Orbitron-Medium",
     padding: 20,
     color: "#FFFFFF",
     textAlign: "center",
@@ -315,7 +449,11 @@ const styles = StyleSheet.create({
     maxWidth: "75%",
   },
   ownBubble: { backgroundColor: "#1e1e1e" },
-  otherBubble: { backgroundColor: "#1e1e1e", borderWidth: 1, borderColor: "#666" },
+  otherBubble: {
+    backgroundColor: "#1e1e1e",
+    borderWidth: 1,
+    borderColor: "#666",
+  },
   senderName: { fontSize: 12, color: "#aaa", marginBottom: 2 },
   chatMessage: { fontSize: 18, color: "#fff" },
   chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 5 },
@@ -328,7 +466,11 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginRight: 10,
   },
-  submitButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8 },
+  submitButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
   backButton: {
     color: "#1ED760",
     marginTop: 10,
@@ -338,4 +480,3 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-
