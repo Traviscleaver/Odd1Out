@@ -1,9 +1,12 @@
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth } from "./services/firebase";
+import { validateAndRefreshToken } from "./services/spotify";
+
 
 const { width, height } = Dimensions.get("window");
 
@@ -100,9 +103,7 @@ export default function Index() {
       }
     });
 
-    AsyncStorage.getItem("spotify-token").then((token) => {
-      if (token) setSpotifyLinked(true);
-    });
+    validateAndRefreshToken().then(setSpotifyLinked);
 
     return () => unsubscribe();
   }, []);
