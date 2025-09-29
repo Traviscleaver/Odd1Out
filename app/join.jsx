@@ -13,20 +13,21 @@ import {
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
+  Easing,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { db } from "./services/firebase"; // your Firestore config
 
 export default function Join() {
   const router = useRouter();
-  const { lobbyName, gameId, status, isPublic, hostId, maxPlayers, userId } =
-    useLocalSearchParams();
+  const { userId } = useLocalSearchParams();
 
   const [input, setInput] = useState("");
   const [lobbies, setLobbies] = useState([]);
@@ -36,6 +37,26 @@ export default function Join() {
   const [currentUserId, setCurrentUserId] = useState(userId || null);
   const [addedToPlayers, setAddedToPlayers] = useState(false);
   const snapshotUnsubRef = useRef(null);
+
+  // 🔹 Animation for refresh button
+  const spinAnim = useRef(new Animated.Value(0)).current;
+
+  const spin = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "360deg"],
+  });
+
+  const handleRefreshPress = () => {
+    getLobbies();
+
+    spinAnim.setValue(0);
+    Animated.timing(spinAnim, {
+      toValue: 1,
+      duration: 600,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  };
 
   // 🔹 Get auth user if not passed in params
   useEffect(() => {
@@ -47,7 +68,7 @@ export default function Join() {
     return unsub;
   }, [currentUserId]);
 
-  // 🔹 Get list of public lobbies
+  // 🔹 Get list of public lobbies (hide full)
   const getLobbies = async () => {
     try {
       const gamesRef = collection(db, "games");
@@ -61,11 +82,17 @@ export default function Join() {
       const lobbiesArray = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        lobbiesArray.push({
-          id: docSnap.id,
-          lobbyName: data.lobbyName,
-          status: data.status,
-        });
+        const playersArray = Array.isArray(data.players) ? data.players : [];
+        const maxPlayers = data.maxPlayers || 0;
+
+        if (playersArray.length < maxPlayers) {
+          lobbiesArray.push({
+            id: docSnap.id,
+            lobbyName: data.lobbyName,
+            players: playersArray,
+            maxPlayers,
+          });
+        }
       });
       setLobbies(lobbiesArray);
     } catch (error) {
@@ -75,13 +102,17 @@ export default function Join() {
 
   useEffect(() => {
     getLobbies();
+    const interval = setInterval(() => {
+      getLobbies();
+    }, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   // 🔹 Subscribe to players list when in a game
   useEffect(() => {
-    if (!gameId) return;
+    if (!userId) return;
 
-    const gameRef = doc(db, "games", gameId);
+    const gameRef = doc(db, "games", userId);
     const unsub = onSnapshot(
       gameRef,
       (snap) => {
@@ -98,15 +129,15 @@ export default function Join() {
       if (snapshotUnsubRef.current) snapshotUnsubRef.current();
       snapshotUnsubRef.current = null;
     };
-  }, [gameId]);
+  }, [userId]);
 
-
+  // 🔹 Add current user once
   useEffect(() => {
-    if (!gameId || !currentUserId || addedToPlayers) return;
+    if (!userId || !currentUserId || addedToPlayers) return;
 
     const addSelf = async () => {
       try {
-        const gameRef = doc(db, "games", gameId);
+        const gameRef = doc(db, "games", userId);
         await updateDoc(gameRef, {
           players: arrayUnion(currentUserId),
         });
@@ -115,10 +146,10 @@ export default function Join() {
         console.error("Error adding self to players:", e);
       }
     };
-
     addSelf();
-  }, [gameId, currentUserId, addedToPlayers]);
+  }, [userId, currentUserId, addedToPlayers]);
 
+  // 🔹 Manual join with code
   const handleSubmit = async () => {
     const gameIdInput = input.trim();
     if (!gameIdInput) {
@@ -142,12 +173,9 @@ export default function Join() {
         return;
       }
 
-      // ✅ Append player to array (not map)
       await updateDoc(gameRef, {
         players: arrayUnion(user.uid),
       });
-
-      console.log(`✅ ${user.uid} joined game ${gameIdInput}`);
 
       router.push({
         pathname: "/lobby",
@@ -177,16 +205,26 @@ export default function Join() {
       >
         <Text style={styles.head}>OFF BEAT</Text>
 
-        <View style={styles.lobbiesContainer}>
-          <Text style={styles.lobbiesTitle}>Available Lobbies</Text>
+        <View style={styles.lobbiesHeader}>
+          <Text style={styles.lobbiesTitle}>AVAILABLE LOBBIES</Text>
+          <TouchableOpacity style={styles.refreshButton} onPress={handleRefreshPress}>
+            <Animated.Image
+              source={require("../assets/images/refresh.png")}
+              style={[styles.refreshIcon, { transform: [{ rotate: spin }] }]}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
+        </View>
 
+        <View style={styles.lobbiesContainer}>
           {lobbies.length === 0 ? (
-            <Text style={styles.noLobbiesText}>No lobbies found</Text>
+            <Text style={styles.noLobbiesText}>NO LOBBIES</Text>
           ) : (
             lobbies.map((lobby) => (
               <View key={lobby.id} style={styles.lobbyRow}>
-                <Text style={styles.lobbyItem}>
-                  {lobby.lobbyName} - {lobby.status.toUpperCase()}
+                <Text style={styles.lobbyName}>{lobby.lobbyName}</Text>
+                <Text style={styles.playersCount}>
+                  {lobby.players.length}/{lobby.maxPlayers}
                 </Text>
                 <TouchableOpacity
                   style={styles.joinButton}
@@ -232,10 +270,7 @@ export default function Join() {
               onChangeText={setInput}
               onSubmitEditing={handleSubmit}
             />
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleSubmit}
-            >
+            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
               <Text style={styles.submitButtonText}>Confirm</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -251,21 +286,6 @@ export default function Join() {
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: "#121212" },
   container: { flex: 1 },
-  backButton: {
-    color: "#1ED760",
-    marginTop: 10,
-    padding: 5,
-    fontSize: 18,
-    textAlign: "center",
-  },
-  backButtonMain: {
-    color: "#1ED760",
-    marginTop: 10,
-    padding: 20,
-    paddingTop: 5,
-    fontSize: 20,
-    textAlign: "center",
-  },
   contentContainer: {
     alignItems: "center",
     padding: 20,
@@ -274,24 +294,47 @@ const styles = StyleSheet.create({
   },
   head: {
     fontSize: 50,
-    fontFamily: 'Orbitron-Medium',
+    fontFamily: "Orbitron-Medium",
     paddingTop: 30,
     color: "#FFFFFF",
     textAlign: "center",
   },
-  lobbiesContainer: {
-    borderRadius: 12,
-    padding: 15,
-    marginTop: 30,
-    marginBottom: 5,
-    width: "100%",
+  lobbiesHeader: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 10,
   },
   lobbiesTitle: {
     fontSize: 25,
+    paddingTop:30,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 10,
+    marginRight: 10,
     textAlign: "center",
+  },
+  refreshButton: {
+    paddingTop:35,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  refreshText: {
+    fontSize: 20,
+    color: "#1ED760",
+  },
+  lobbiesContainer: {
+    borderRadius: 12,
+    padding: 15,
+    paddingTop:0,
+    marginTop: 10,
+    marginBottom: 5,
+    width: "100%",
+  },
+  refreshIcon: {
+  width: 24,  
+  height: 24,
+
+  tintColor: "#1ED760", 
   },
   lobbyRow: {
     flexDirection: "row",
@@ -303,13 +346,13 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
   },
-  lobbyItem: { color: "#fff", fontSize: 16, flex: 1 },
+  lobbyName: { color: "#fff", fontSize: 16, flex: 1 },
+  playersCount: { color: "#ccc", fontSize: 14, marginRight: 15 },
   joinButton: {
     backgroundColor: "#1ED760",
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 5,
-    marginLeft: 10,
   },
   joinButtonText: {
     color: "#fff",
@@ -345,6 +388,21 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 18,
     fontWeight: "bold",
+    textAlign: "center",
+  },
+  backButtonMain: {
+    color: "#1ED760",
+    marginTop: 10,
+    padding: 20,
+    paddingTop: 5,
+    fontSize: 20,
+    textAlign: "center",
+  },
+  backButton: {
+    color: "#1ED760",
+    marginTop: 10,
+    padding: 5,
+    fontSize: 18,
     textAlign: "center",
   },
   footer: {

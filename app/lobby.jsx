@@ -11,7 +11,6 @@ export default function Join() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { lobbyName: paramLobbyName, gameId: paramGameId, hostId: paramHostId, userId: paramUserId, status: lobbyStatus } = params;
-
   const [lobbyName, setLobbyName] = useState(paramLobbyName || "");
   const [gameId, setGameId] = useState(paramGameId || "");
   const [players, setPlayers] = useState([]);
@@ -43,7 +42,6 @@ export default function Join() {
           params: { gameId, lobbyName },
         });
       }
-
     }
     func();
   }, [status]);
@@ -70,7 +68,6 @@ export default function Join() {
     findByLobbyName();
   }, [lobbyName, gameId]);
 
-  // Subscribe to game document updates
   useEffect(() => {
     if (!gameId) return;
 
@@ -147,15 +144,19 @@ export default function Join() {
     }
   };
 
-  // Host starts game
+  
   const handleStartGame = async () => {
-    await updateStatus(); // Firestore updated
-    setStatus("playing"); // host navigates immediately
+    await updateStatus(); 
+    setStatus("playing"); 
   };
+
+
+  const canStart = players.length >= 1; 
 
   const handleKickPlayer = async (playerId) => {
     alert("Not implemented yet!");
   };
+
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
@@ -185,8 +186,17 @@ export default function Join() {
       </View>
 
       {isHost && (
-        <TouchableOpacity style={styles.submitButton} onPress={handleStartGame}>
-          <Text style={styles.buttons}>START GAME</Text>
+        <TouchableOpacity
+          disabled={!canStart}
+          style={[
+            styles.submitButton,
+            { backgroundColor: canStart ? "#1ED760" : "#6f6f6fff" },
+          ]}
+          onPress={handleStartGame}
+        >
+          <Text style={[styles.buttonStart, { color: canStart ? "#fff" : "#fff" }]}>
+            {canStart ? "START GAME" : "WAITING FOR PLAYERS"}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -202,13 +212,14 @@ const styles = StyleSheet.create({
   contentContainer: { alignItems: "center", padding: 20 },
 
   head: { marginTop: 40, fontSize: 50, fontFamily: 'Orbitron-Medium', padding: 20, color: "#FFFFFF", textAlign: "center" },
-  playersContainer: { borderWidth: 0, borderRadius: 12, borderColor: "#1ED760", borderTopWidth: 2, borderBottomWidth: 2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8 },
+  playersContainer: { borderColor: "#1EF760", borderBottomWidth:2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8, paddingLeft:20,paddingRight:20 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
   playerTitle: { paddingTop: 15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
   code: { paddingTop: 15, fontSize: 20, color: "#fff" },
   playerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderColor: "#1ED760", borderWidth: 2, borderRadius: 5, padding: 15, marginBottom: 10 },
   playerItem: { color: "#fff", fontSize: 16, flex: 1 },
-  submitButton: { backgroundColor: "#1ED760", paddingVertical: 15, paddingHorizontal: 60, borderRadius: 8, marginLeft: 30, marginRight: 30 },
+  submitButton: { paddingVertical: 15, paddingHorizontal: 60, borderRadius: 8, marginLeft: 30, marginRight: 30 },
+  buttonStart: { fontSize: 18, fontWeight: "bold", textAlign: "center" },
   buttons: { backgroundColor: '#1ED760', textAlign: 'center', fontSize: 22, margin: 2, color: '#fff', borderRadius: 8 },
   kickButton: { backgroundColor: '#d71e1eff', textAlign: 'center', fontSize: 22, margin: 2, color: '#fff', borderRadius: 8 },
   backButton: { color: "#1ED760", marginTop: 10, padding: 20, fontSize: 20, textAlign: "center" },
