@@ -230,6 +230,7 @@ export default function Join() {
               placeholderTextColor="#aaa"
               value={input}
               onChangeText={setInput}
+              onSubmitEditing={handleSubmit}
             />
             <TouchableOpacity
               style={styles.submitButton}

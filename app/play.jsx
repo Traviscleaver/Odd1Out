@@ -17,7 +17,7 @@ import { generateGameCode } from "./utils/helpers";
 export default function Index() {
   const router = useRouter();
 
-  const [user, setUser] = useState(null); 
+  const [user, setUser] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [lobbyName, setLobbyName] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(3);
@@ -48,15 +48,15 @@ export default function Index() {
       alert("User not authenticated yet. Try again.");
       return;
     }
-	
-    
+
+
     await setDoc(gameRef, {
-      hostId: user.uid,        
+      hostId: user.uid,
       lobbyName: lobbyName,
       maxPlayers: maxPlayers,
       isPublic: isPublic,
       players: [user.uid],
-      status: "waiting", 
+      status: "waiting",
     });
 
     const gameSnap = await getDoc(gameRef);
@@ -66,15 +66,15 @@ export default function Index() {
     setModalVisible(false);
 
     router.push({
-	    pathname: '/lobby',
-	    params: {
-    		lobbyName: gameData.lobbyName,
-    		gameId: gameId,
-    		currStatus: gameData.status,
-    		public: gameData.isPublic,
-    		hostId: gameData.hostId,
-		maxPlayers: maxPlayers,
-	    },
+      pathname: '/lobby',
+      params: {
+        lobbyName: gameData.lobbyName,
+        gameId: gameId,
+        currStatus: gameData.status,
+        public: gameData.isPublic,
+        hostId: gameData.hostId,
+        maxPlayers: maxPlayers,
+      },
     });
   };
 
@@ -83,15 +83,15 @@ export default function Index() {
     <View style={styles.container}>
       <Text style={styles.head}>PLAY</Text>
 
-      <TouchableOpacity 
-        onPress={() => router.push("/join")} 
+      <TouchableOpacity
+        onPress={() => router.push("/join")}
         style={styles.buttons}
       >
         <Text style={styles.buttonText}>JOIN LOBBY</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity 
-        onPress={() => setModalVisible(true)} 
+      <TouchableOpacity
+        onPress={() => setModalVisible(true)}
         style={styles.buttons}
       >
         <Text style={styles.buttonText}>CREATE LOBBY</Text>
@@ -117,6 +117,7 @@ export default function Index() {
               placeholderTextColor="#fff"
               value={lobbyName}
               onChangeText={setLobbyName}
+              onSubmitEditing={handleCreateLobby}
             />
 
             <Text style={{ color: "#fff", marginBottom: 5 }}>MAX PLAYERS</Text>
@@ -144,8 +145,8 @@ export default function Index() {
               />
             </View>
 
-            <TouchableOpacity 
-              style={styles.submitButton} 
+            <TouchableOpacity
+              style={styles.submitButton}
               onPress={handleCreateLobby}
             >
               <Text style={styles.submitButtonText}>CREATE</Text>
@@ -162,10 +163,10 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  head: { fontSize: 50, paddingBottom: 90, color: "#FFFFFF", fontFamily: 'Orbitron-Medium',},
-  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" },backButton: {color: "#1ED760", marginTop: 10, padding:20,paddingBottom:30,fontSize: 20},
+  head: { fontSize: 50, paddingBottom: 90, color: "#FFFFFF", fontFamily: 'Orbitron-Medium', },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" }, backButton: { color: "#1ED760", marginTop: 10, padding: 20, paddingBottom: 30, fontSize: 20 },
   buttons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 10, borderRadius: 8 },
-  backButton: {color: "#1ED760", marginTop: 10, padding:5,fontSize: 20},
+  backButton: { color: "#1ED760", marginTop: 10, padding: 5, fontSize: 20 },
   buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.6)" },
   modalContainer: { width: "85%", backgroundColor: "#121212", borderRadius: 12, padding: 20, alignItems: "center" },

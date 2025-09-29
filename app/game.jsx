@@ -205,85 +205,90 @@ export default function Game() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={80}
-    >
-      <Text style={styles.head}>OFF BEAT</Text>
-      {playerName && (
-        <Text style={styles.playerName}>Your name: {playerName}</Text>
-      )}
+    <View style={styles.backgroundStyle}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS !== "web" ? "padding" : undefined}
+      >
+        <Text style={styles.head}>OFF BEAT</Text>
+        {playerName && (
+          <Text style={styles.playerName}>Your name: {playerName}</Text>
+        )}
 
-      <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
-        {myTurn ? "Your turn! Send a message (30s)" : "Waiting for others..."} 
-      </Text>
+        <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
+          {myTurn ? "Your turn! Send a message (30s)" : "Waiting for others..."}
+        </Text>
 
-      <View style={styles.chatContainer}>
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => {
-            const isOwn = item.senderId === currentUserId;
-            return (
-              <View
-                style={{
-                  marginBottom: 10,
-                  alignItems: isOwn ? "flex-end" : "flex-start",
-                }}
-              >
-                <Text style={styles.senderName}>{item.senderName}</Text>
+        <View style={styles.chatContainer}>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => {
+              const isOwn = item.senderId === currentUserId;
+              return (
                 <View
-                  style={[
-                    styles.chatBubble,
-                    isOwn ? styles.ownBubble : styles.otherBubble,
-                  ]}
+                  style={{
+                    marginBottom: 10,
+                    alignItems: isOwn ? "flex-end" : "flex-start",
+                  }}
                 >
-                  <Text style={styles.chatMessage}>{item.text}</Text>
+                  <Text style={styles.senderName}>{item.senderName}</Text>
+                  <View
+                    style={[
+                      styles.chatBubble,
+                      isOwn ? styles.ownBubble : styles.otherBubble,
+                    ]}
+                  >
+                    <Text style={styles.chatMessage}>{item.text}</Text>
+                  </View>
                 </View>
-              </View>
-            );
-          }}
-          contentContainerStyle={{ paddingBottom: 10 }}
-        />
-      </View>
+              );
+            }}
+            contentContainerStyle={{ paddingBottom: 10 }}
+          />
+        </View>
 
-      <View style={styles.chatInputRow}>
-        <TextInput
-          style={[
-            styles.textInput,
-            { borderColor: myTurn ? "#1ED760" : "#555" },
-          ]}
-          placeholder="Type a message..."
-          placeholderTextColor="#888"
-          value={newMessage}
-          onChangeText={setNewMessage}
-          editable={myTurn}
-        />
-        <TouchableOpacity
-          style={[
-            styles.submitButton,
-            { backgroundColor: myTurn ? "#1ED760" : "#555" },
-          ]}
-          onPress={sendMessage}
-          disabled={!myTurn || !newMessage.trim()}
-        >
-          <Text style={{ color: "#fff", fontWeight: "bold" }}>SEND</Text>
-        </TouchableOpacity>
-      </View>
+        <View style={styles.chatInputRow}>
+          <TextInput
+            style={[
+              styles.textInput,
+              { borderColor: myTurn ? "#1ED760" : "#555" },
+            ]}
+            placeholder="Type a message..."
+            placeholderTextColor="#888"
+            value={newMessage}
+            onChangeText={setNewMessage}
+            onSubmitEditing={sendMessage}
+            editable={myTurn}
+          />
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              { backgroundColor: myTurn ? "#1ED760" : "#555" },
+            ]}
+            onPress={sendMessage}
+            disabled={!myTurn || !newMessage.trim()}
+          >
+            <Text style={{ color: "#fff", fontWeight: "bold" }}>SEND</Text>
+          </TouchableOpacity>
+        </View>
 
+      </KeyboardAvoidingView>
       <TouchableOpacity onPress={leaveLobby}>
         <Text style={styles.backButton}>QUIT</Text>
       </TouchableOpacity>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backgroundStyle: {
     flex: 1,
     backgroundColor: "#121212",
+  },
+  container: {
+    flex: 1,
     padding: 20,
     paddingTop: 65,
   },
