@@ -20,8 +20,10 @@ export default function Index() {
   const [user, setUser] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [lobbyName, setLobbyName] = useState("");
+  const [lobbyNameError, setLobbyNameError] = useState(""); // new error state
   const [maxPlayers, setMaxPlayers] = useState(3);
   const [isPublic, setIsPublic] = useState(true);
+
   const gameId = generateGameCode();
   const gameRef = doc(db, "games", gameId);
 
@@ -40,15 +42,21 @@ export default function Index() {
 
   const handleCreateLobby = async () => {
     if (!lobbyName.trim()) {
-      alert("Enter a lobby name");
+      setLobbyNameError("Please enter a lobby name"); // show error text
+      return;
+    }
+
+    if (lobbyName.length < 4 || lobbyName.length > 15) {
+      setLobbyNameError("Lobby name must be 4–15 characters"); // show error text
       return;
     }
 
     if (!user) {
-      alert("User not authenticated yet. Try again.");
+      setLobbyNameError("User not authenticated yet"); // optional error
       return;
     }
 
+    setLobbyNameError(""); // clear error if valid
 
     await setDoc(gameRef, {
       hostId: user.uid,
@@ -77,7 +85,6 @@ export default function Index() {
       },
     });
   };
-
 
   return (
     <View style={styles.container}>
@@ -112,13 +119,31 @@ export default function Index() {
             <Text style={styles.modalTitle}>CREATE LOBBY</Text>
 
             <TextInput
-              style={styles.modalInput}
+              style={[
+                styles.modalInput,
+                { borderColor: lobbyNameError ? "red" : "#1ED760" } // dynamic border
+              ]}
               placeholder="Lobby Name"
               placeholderTextColor="#fff"
               value={lobbyName}
-              onChangeText={setLobbyName}
+              onChangeText={(text) => {
+                const slicedText = text.slice(0, 15);
+                setLobbyName(slicedText);
+
+                if (slicedText.length < 4 || slicedText.length > 15) {
+                  setLobbyNameError("Lobby name must be 4–15 characters");
+                } else {
+                  setLobbyNameError(""); // clear error if valid
+                }
+              }}
+              maxLength={15}
               onSubmitEditing={handleCreateLobby}
             />
+
+            {/* Error message under the input */}
+            {!!lobbyNameError && (
+              <Text style={styles.errorText}>{lobbyNameError}</Text>
+            )}
 
             <Text style={{ color: "#fff", marginBottom: 5 }}>MAX PLAYERS</Text>
             <View style={styles.playersRow}>
@@ -164,14 +189,15 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   head: { fontSize: 50, paddingBottom: 90, color: "#FFFFFF", fontFamily: 'Orbitron-Medium', },
-  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" }, backButton: { color: "#1ED760", marginTop: 10, padding: 20, paddingBottom: 30, fontSize: 20 },
-  buttons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 10, borderRadius: 8 },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" },
   backButton: { color: "#1ED760", marginTop: 10, padding: 5, fontSize: 20 },
+  buttons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 10, borderRadius: 8 },
   buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.6)" },
   modalContainer: { width: "85%", backgroundColor: "#121212", borderRadius: 12, padding: 20, alignItems: "center" },
   modalTitle: { fontSize: 24, fontFamily: 'Orbitron-Medium', color: "#fff", marginBottom: 20 },
-  modalInput: { width: "100%", height: 50, borderColor: "#1ED760", borderWidth: 2, borderRadius: 8, paddingHorizontal: 15, color: "#fff", marginBottom: 15 },
+  modalInput: { width: "100%", height: 50, borderWidth: 2, borderRadius: 8, paddingHorizontal: 15, color: "#fff", marginBottom: 5 },
+  errorText: { color: "red", alignSelf: "flex-start", marginBottom: 10 },
   playersRow: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 15 },
   playerButton: { backgroundColor: "#333", padding: 10, borderRadius: 5, width: 40, alignItems: "center" },
   selectedPlayerButton: { backgroundColor: "#1ED760" },
