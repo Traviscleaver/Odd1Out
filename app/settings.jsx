@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { checkTokenStatus, clearSpotifyToken, promptSpotifyLogin } from "./services/spotify";
+import { checkTokenStatus, clearSpotifyToken, promptSpotifyLogin, webGetSpotifyToken } from "./services/spotify";
 
 export default function Index() {
   const router = useRouter();
@@ -26,7 +26,9 @@ export default function Index() {
     setSpotifyTime(checkTokenStatus());
   }
 
-  useEffect(() => { setSpotifyTime(checkTokenStatus()) }, []);
+  useEffect(() => {
+    webGetSpotifyToken().then(_ => setSpotifyTime(checkTokenStatus()));
+  }, []);
 
   return (
     <View style={styles.container}>
