@@ -44,6 +44,7 @@ export default function Game() {
   const players = gameData?.players || {};
   const myTurn = currentUserId && players[currentUserId]?.isTurn;
 
+
   // Assign random friendly name
   useEffect(() => {
     if (!currentUserId || playerName) return;

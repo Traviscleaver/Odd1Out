@@ -106,7 +106,7 @@ export default function Index() {
     return () => unsubscribe();
   }, []);
 
-  const emojis = ["🎶", "🎧", "🎵",];
+  const emojis = ["🎶","🎵",];
   const totalEmojis = 100;
 
   return (
