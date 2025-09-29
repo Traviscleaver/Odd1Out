@@ -62,7 +62,7 @@ export default function Index() {
         </TouchableOpacity>
       }
       <TouchableOpacity onPress={() => router.push("/")}>
-        <Text style={styles.backButton}>Back</Text>
+        <Text style={styles.backButton}>BACK</Text>
       </TouchableOpacity>
     </View >
   );

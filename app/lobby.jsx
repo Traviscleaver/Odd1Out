@@ -183,7 +183,7 @@ export default function Join() {
       )}
 
       <TouchableOpacity onPress={leaveLobby}>
-        <Text style={styles.backButton}>Leave Lobby</Text>
+        <Text style={styles.backButton}>LEAVE</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -192,7 +192,7 @@ export default function Join() {
 const styles = StyleSheet.create({
   container: { flex: 0.9, backgroundColor: "#121212" },
   contentContainer: { alignItems: "center", padding: 20 },
-  head: { marginTop: 40, fontSize: 50, fontWeight: "bold", padding: 20, color: "#FFFFFF", textAlign: "center" },
+  head: { marginTop: 40, fontSize: 50, fontFamily: 'Orbitron-Medium', padding: 20, color: "#FFFFFF", textAlign: "center" },
   playersContainer: { borderWidth: 0,borderRadius:12, borderColor: "#1ED760", borderTopWidth: 2,borderBottomWidth:2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
   playerTitle: { paddingTop:15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },

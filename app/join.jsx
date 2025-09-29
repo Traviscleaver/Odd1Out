@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   head: {
     fontSize: 50,
-    fontWeight: "bold",
+    fontFamily: 'Orbitron-Medium',
     paddingTop: 30,
     color: "#FFFFFF",
     textAlign: "center",

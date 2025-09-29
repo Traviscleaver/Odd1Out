@@ -216,7 +216,7 @@ export default function Game() {
       )}
 
       <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
-        {myTurn ? "Your turn! Send a message (30s)" : "Waiting for others..."}
+        {myTurn ? "Your turn! Send a message (30s)" : "Waiting for others..."} 
       </Text>
 
       <View style={styles.chatContainer}>
@@ -269,12 +269,12 @@ export default function Game() {
           onPress={sendMessage}
           disabled={!myTurn || !newMessage.trim()}
         >
-          <Text style={{ color: "#fff", fontWeight: "bold" }}>Send</Text>
+          <Text style={{ color: "#fff", fontWeight: "bold" }}>SEND</Text>
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity onPress={leaveLobby}>
-        <Text style={styles.backButton}>Leave Lobby</Text>
+        <Text style={styles.backButton}>QUIT</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   },
   head: {
     fontSize: 50,
-    fontWeight: "bold",
+    fontFamily: 'Orbitron-Medium',
     padding: 20,
     color: "#FFFFFF",
     textAlign: "center",
