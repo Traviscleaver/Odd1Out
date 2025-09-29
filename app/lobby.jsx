@@ -114,6 +114,13 @@ export default function Join() {
     addSelf();
   }, [gameId, currentUserId, addedToPlayers]);
 
+  useEffect(() => {
+    if (currentUserId && !players.includes(currentUserId)) {
+      router.push("/play")
+      alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]);
+    }
+  }, [players]);
+
   // Remove user from players when leaving
   const leaveLobby = async () => {
     try {
@@ -144,17 +151,26 @@ export default function Join() {
     }
   };
 
-  
+
   const handleStartGame = async () => {
-    await updateStatus(); 
-    setStatus("playing"); 
+    await updateStatus();
+    setStatus("playing");
   };
 
 
-  const canStart = players.length >= 1; 
+  const canStart = players.length >= 1;
 
   const handleKickPlayer = async (playerId) => {
-    alert("Not implemented yet!");
+    if (gameId && playerId) {
+      const gameRef = doc(db, "games", gameId);
+      if (players.length === 1) {
+        await deleteDoc(gameRef);
+      } else {
+        await updateDoc(gameRef, {
+          players: arrayRemove(playerId),
+        });
+      }
+    }
   };
 
 
@@ -212,7 +228,7 @@ const styles = StyleSheet.create({
   contentContainer: { alignItems: "center", padding: 20 },
 
   head: { marginTop: 40, fontSize: 50, fontFamily: 'Orbitron-Medium', padding: 20, color: "#FFFFFF", textAlign: "center" },
-  playersContainer: { borderColor: "#1EF760", borderBottomWidth:2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8, paddingLeft:20,paddingRight:20 },
+  playersContainer: { borderColor: "#1EF760", borderBottomWidth: 2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8, paddingLeft: 20, paddingRight: 20 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
   playerTitle: { paddingTop: 15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
   code: { paddingTop: 15, fontSize: 20, color: "#fff" },
