@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth, db } from "./services/firebase";
 import * as spotify from "./services/spotify";
+import { Image } from "react-native";
 
 export default function Join() {
   const router = useRouter();
@@ -152,6 +153,10 @@ export default function Join() {
     setStatus("playing"); // host navigates immediately
   };
 
+  const handleKickPlayer = async (playerId) => {
+    alert("Not implemented yet!");
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.head}>OFF BEAT</Text>
@@ -170,6 +175,9 @@ export default function Join() {
                 <Text style={styles.playerItem}>
                   {`Player ${index + 1}${isMe ? " (You)" : ""} `}
                 </Text>
+                {isHost && <TouchableOpacity onPress={() => handleKickPlayer(player)}>
+                  <Image source={require("../assets/images/remove.png")} style={{ width: 20, height: 20 }} />
+                </TouchableOpacity>}
               </View>
             );
           })
@@ -194,7 +202,7 @@ const styles = StyleSheet.create({
   contentContainer: { alignItems: "center", padding: 20 },
 
   head: { marginTop: 40, fontSize: 50, fontFamily: 'Orbitron-Medium', padding: 20, color: "#FFFFFF", textAlign: "center" },
-  playersContainer: { borderWidth: 0,borderRadius:12, borderColor: "#1ED760", borderTopWidth: 2,borderBottomWidth:2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8 },
+  playersContainer: { borderWidth: 0, borderRadius: 12, borderColor: "#1ED760", borderTopWidth: 2, borderBottomWidth: 2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
   playerTitle: { paddingTop: 15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
   code: { paddingTop: 15, fontSize: 20, color: "#fff" },
@@ -202,5 +210,6 @@ const styles = StyleSheet.create({
   playerItem: { color: "#fff", fontSize: 16, flex: 1 },
   submitButton: { backgroundColor: "#1ED760", paddingVertical: 15, paddingHorizontal: 60, borderRadius: 8, marginLeft: 30, marginRight: 30 },
   buttons: { backgroundColor: '#1ED760', textAlign: 'center', fontSize: 22, margin: 2, color: '#fff', borderRadius: 8 },
+  kickButton: { backgroundColor: '#d71e1eff', textAlign: 'center', fontSize: 22, margin: 2, color: '#fff', borderRadius: 8 },
   backButton: { color: "#1ED760", marginTop: 10, padding: 20, fontSize: 20, textAlign: "center" },
 });
