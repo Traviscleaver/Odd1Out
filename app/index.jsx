@@ -1,11 +1,9 @@
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth } from "./services/firebase";
-import { validateAndRefreshToken } from "./services/spotify";
+import * as Spotify from "./services/spotify";
 
 
 const { width, height } = Dimensions.get("window");
@@ -16,7 +14,7 @@ function FallingEmoji({ emoji, delay, size }) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   function getRandomX() {
-    return 0.1 * width + Math.random() * 0.8 * width; 
+    return 0.1 * width + Math.random() * 0.8 * width;
   }
 
   useEffect(() => {
@@ -29,7 +27,7 @@ function FallingEmoji({ emoji, delay, size }) {
 
       const swayAnimations = [];
       let totalTime = 0;
-      const segments = 2 + Math.floor(Math.random() * 3);  
+      const segments = 2 + Math.floor(Math.random() * 3);
       for (let i = 0; i < segments; i++) {
         const duration = fallDuration / segments;
         swayAnimations.push(
@@ -51,7 +49,7 @@ function FallingEmoji({ emoji, delay, size }) {
         }),
         Animated.sequence(swayAnimations),
       ]).start(() => {
-        setTimeout(animateEmoji, Math.random() * 1500); 
+        setTimeout(animateEmoji, Math.random() * 1500);
       });
     };
 
@@ -89,7 +87,7 @@ function FallingEmoji({ emoji, delay, size }) {
 export default function Index() {
   const router = useRouter();
   const [user, setUser] = useState(null);
-  const [spotify_linked, setSpotifyLinked] = useState(false);
+  const [spotify_linked, setSpotifyLinked] = useState(Spotify.checkTokenStatus() > 0);
 
   useEffect(() => {
     signInAnonymously(auth)
@@ -103,7 +101,7 @@ export default function Index() {
       }
     });
 
-    validateAndRefreshToken().then(setSpotifyLinked);
+    Spotify.validateAndRefreshToken().then(setSpotifyLinked);
 
     return () => unsubscribe();
   }, []);
