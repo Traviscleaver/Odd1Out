@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth, db } from "./services/firebase";
 import * as spotify from "./services/spotify";
+import { Image } from "react-native";
 
 export default function Join() {
   const router = useRouter();
@@ -149,7 +150,14 @@ export default function Join() {
     setStatus("playing"); 
   };
 
+
   const canStart = players.length >= 1; 
+
+  const handleKickPlayer = async (playerId) => {
+    alert("Not implemented yet!");
+  };
+
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
       <Text style={styles.head}>OFF BEAT</Text>
@@ -168,6 +176,9 @@ export default function Join() {
                 <Text style={styles.playerItem}>
                   {`Player ${index + 1}${isMe ? " (You)" : ""} `}
                 </Text>
+                {isHost && <TouchableOpacity onPress={() => handleKickPlayer(player)}>
+                  <Image source={require("../assets/images/remove.png")} style={{ width: 20, height: 20 }} />
+                </TouchableOpacity>}
               </View>
             );
           })
@@ -209,5 +220,7 @@ const styles = StyleSheet.create({
   playerItem: { color: "#fff", fontSize: 16, flex: 1 },
   submitButton: { paddingVertical: 15, paddingHorizontal: 60, borderRadius: 8, marginLeft: 30, marginRight: 30 },
   buttonStart: { fontSize: 18, fontWeight: "bold", textAlign: "center" },
+  buttons: { backgroundColor: '#1ED760', textAlign: 'center', fontSize: 22, margin: 2, color: '#fff', borderRadius: 8 },
+  kickButton: { backgroundColor: '#d71e1eff', textAlign: 'center', fontSize: 22, margin: 2, color: '#fff', borderRadius: 8 },
   backButton: { color: "#1ED760", marginTop: 10, padding: 20, fontSize: 20, textAlign: "center" },
 });
