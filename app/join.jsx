@@ -82,14 +82,13 @@ export default function Join() {
       const lobbiesArray = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data();
-        const playersArray = Array.isArray(data.players) ? data.players : [];
         const maxPlayers = data.maxPlayers || 0;
 
-        if (playersArray.length < maxPlayers) {
+        if (Object.keys(data.players).length < maxPlayers) {
           lobbiesArray.push({
             id: docSnap.id,
             lobbyName: data.lobbyName,
-            players: playersArray,
+            players: Object.keys(data.players),
             maxPlayers,
           });
         }
@@ -118,7 +117,7 @@ export default function Join() {
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          setPlayers(Array.isArray(data.players) ? data.players : []);
+          setPlayers(data.players);
         }
       },
       (err) => console.error("onSnapshot error:", err)
@@ -139,8 +138,8 @@ export default function Join() {
       try {
         const gameRef = doc(db, "games", userId);
         await updateDoc(gameRef, {
-          players: arrayUnion(currentUserId),
-        });
+          [`players.${currentUserId}`]: { alive: true },
+        }, { merge: true });
         setAddedToPlayers(true);
       } catch (e) {
         console.error("Error adding self to players:", e);
@@ -174,8 +173,8 @@ export default function Join() {
       }
 
       await updateDoc(gameRef, {
-        players: arrayUnion(user.uid),
-      });
+        [`players.${user.uid}`]: { alive: true },
+      }, { merge: true });
 
       router.push({
         pathname: "/lobby",
@@ -307,14 +306,14 @@ const styles = StyleSheet.create({
   },
   lobbiesTitle: {
     fontSize: 25,
-    paddingTop:30,
+    paddingTop: 30,
     fontWeight: "bold",
     color: "#fff",
     marginRight: 10,
     textAlign: "center",
   },
   refreshButton: {
-    paddingTop:35,
+    paddingTop: 35,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -325,16 +324,16 @@ const styles = StyleSheet.create({
   lobbiesContainer: {
     borderRadius: 12,
     padding: 15,
-    paddingTop:0,
+    paddingTop: 0,
     marginTop: 10,
     marginBottom: 5,
     width: "100%",
   },
   refreshIcon: {
-  width: 24,  
-  height: 24,
+    width: 24,
+    height: 24,
 
-  tintColor: "#1ED760", 
+    tintColor: "#1ED760",
   },
   lobbyRow: {
     flexDirection: "row",

@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { arrayRemove, collection, deleteDoc, deleteField, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth, db } from "./services/firebase";
@@ -77,13 +77,13 @@ export default function Join() {
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          const playersArray = Array.isArray(data.players) ? data.players : [];
-          setPlayers(playersArray);
+          // const playersArray = Array.isArray(data.players) ? data.players : [];
+          setPlayers(data.players);
 
           if (!lobbyName && data.lobbyName) setLobbyName(data.lobbyName);
           if (data.status) setStatus(data.status);
         } else {
-          setPlayers([]);
+          setPlayers({});
         }
       },
       (err) => console.error("onSnapshot error:", err)
@@ -103,10 +103,9 @@ export default function Join() {
     const addSelf = async () => {
       try {
         const gameRef = doc(db, "games", gameId);
-        await updateDoc(gameRef, {
-          players: arrayUnion(currentUserId),
-        });
+        await updateDoc(gameRef, { [`players.${currentUserId}`]: { alive: true } }, { merge: true });
         setAddedToPlayers(true);
+        getDoc(gameRef).then(snap => console.log(snap.data()));
       } catch (e) {
         console.error("Error adding self to players:", e);
       }
@@ -114,23 +113,25 @@ export default function Join() {
     addSelf();
   }, [gameId, currentUserId, addedToPlayers]);
 
-  useEffect(() => {
-    if (currentUserId && !players.includes(currentUserId)) {
-      router.replace("/play")
-      alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]);
-    }
-  }, [players]);
+  // useEffect(() => {
+  //   if (addedToPlayers && currentUserId && !players.includes(currentUserId)) {
+  //     router.replace("/play")
+  //     alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]);
+  //   }
+  // }, [players]);
 
   // Remove user from players when leaving
   const leaveLobby = async () => {
     try {
       if (gameId && currentUserId) {
         const gameRef = doc(db, "games", gameId);
-        if (players.length === 1) {
+        if (Object.keys(players).length <= 1) {
           await deleteDoc(gameRef);
         } else {
           await updateDoc(gameRef, {
-            players: arrayRemove(currentUserId),
+            [`players.${currentUserId}`]: deleteField()
+          }, {
+            merge: true
           });
         }
       }
@@ -158,12 +159,12 @@ export default function Join() {
   };
 
 
-  const canStart = players.length >= 1;
+  const canStart = Object.keys(players).length >= 1;
 
   const handleKickPlayer = async (playerId) => {
     if (gameId && playerId) {
       const gameRef = doc(db, "games", gameId);
-      if (players.length === 1) {
+      if (Object.keys(players).length === 1) {
         await deleteDoc(gameRef);
       } else {
         await updateDoc(gameRef, {
@@ -182,10 +183,10 @@ export default function Join() {
         <Text style={styles.code}>[{gameId || "no-code"}]</Text>
       </View>
       <View style={styles.playersContainer}>
-        {players.length === 0 ? (
+        {Object.keys(players).length === 0 ? (
           <Text style={{ color: "#aaa", textAlign: "center" }}>Waiting for players...</Text>
         ) : (
-          players.map((player, index) => {
+          Object.keys(players).map((player, index) => {
             const isMe = String(player) === String(currentUserId);
             return (
               <View key={index} style={styles.playerRow}>
