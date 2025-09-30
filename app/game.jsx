@@ -172,7 +172,6 @@ export default function Game() {
       const newCallVote = (data.callVote || 0) + 1;
 
       if (newCallVote / totalPlayers > 0.5 && !data.voteSession?.active) {
-        // Start vote session
         const initialVotes = {};
         const voted = {};
         Object.keys(data.players).forEach((pid) => {
