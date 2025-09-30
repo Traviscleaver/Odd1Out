@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  runTransaction,
   setDoc,
   updateDoc,
 } from "firebase/firestore";
@@ -42,8 +43,9 @@ export default function Game() {
   const turnTimerRef = useRef(null);
 
   const players = gameData?.players || {};
-  const myTurn = currentUserId && players[currentUserId]?.isTurn;
+  const alive = currentUserId && players[currentUserId]?.alive;
 
+  const voteSession = gameData?.voteSession || null;
 
   // Assign random friendly name
   useEffect(() => {
@@ -76,49 +78,27 @@ export default function Game() {
     return unsub;
   }, [gameId]);
 
-  // Add player to game with turn order
-  useEffect(() => {
-    if (!gameId || !currentUserId || !playerName) return;
+useEffect(() => {
+  if (!gameId || !currentUserId || !playerName) return;
 
-    const addSelf = async () => {
-      const gameRef = doc(db, "games", gameId);
-      const snap = await getDoc(gameRef);
+  const addSelf = async () => {
+    const gameRef = doc(db, "games", gameId);
+    const snap = await getDoc(gameRef);
 
-      if (!snap.exists()) {
-        // Create new game
-        await setDoc(gameRef, {
-          hostId: currentUserId,
-          status: "waiting",
-          messages: [],
-          players: {
-            [currentUserId]: { name: playerName, isTurn: true },
-          },
-          turnOrder: [currentUserId],
-        });
-      } else {
-        const data = snap.data();
-        const players = data.players || {};
-        const turnOrder = data.turnOrder || Object.keys(players);
-        const someoneHasTurn = Object.values(players).some((p) => p.isTurn);
+      // Update only the nested fields for this player (preserves other nested fields)
+      await updateDoc(gameRef, {
+        [`players.${currentUserId}.name`]: playerName,
+        [`players.${currentUserId}.alive`]: true,
+      });
+  };
 
-        if (!turnOrder.includes(currentUserId)) turnOrder.push(currentUserId);
+  addSelf();
+}, [gameId, currentUserId, playerName]);
 
-        await updateDoc(gameRef, {
-          [`players.${currentUserId}`]: {
-            name: playerName,
-            isTurn: !someoneHasTurn,
-          },
-          turnOrder,
-        });
-      }
-    };
-
-    addSelf();
-  }, [gameId, currentUserId, playerName]);
 
   // Send message
   const sendMessage = async () => {
-    if (!newMessage.trim() || !currentUserId || !myTurn) return;
+    if (!newMessage.trim() || !currentUserId) return;
 
     const gameRef = doc(db, "games", gameId);
 
@@ -134,42 +114,120 @@ export default function Game() {
 
     await updateDoc(gameRef, { messages: updatedMessages });
 
-    await advanceTurn();
   };
 
-  // Advance turn in strict linear order
-  const advanceTurn = async () => {
-    if (!gameData) return;
-    const { players, turnOrder } = gameData;
-    if (!turnOrder || turnOrder.length === 0) return;
 
-    let currentIndex = turnOrder.findIndex((id) => players[id]?.isTurn);
-    if (currentIndex === -1) currentIndex = 0;
+  // === Voting System ===
 
-    const nextIndex = (currentIndex + 1) % turnOrder.length;
+  const callForVote = async () => {
+    if (!gameId) return;
+    const gameRef = doc(db, "games", gameId);
 
-    const updates = {};
-    turnOrder.forEach((id, idx) => {
-      updates[`players.${id}.isTurn`] = idx === nextIndex;
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(gameRef);
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+      const totalPlayers = Object.keys(data.players || {}).length;
+      const newCallVote = (data.callVote || 0) + 1;
+
+      if (newCallVote / totalPlayers > 0.5 && !data.voteSession?.active) {
+        // Start a vote session
+        const initialVotes = {};
+        const voted = {};
+        Object.keys(data.players).forEach((pid) => {
+          initialVotes[pid] = 0;
+          voted[pid] = false;
+        });
+        initialVotes["skip"] = 0;
+
+        transaction.update(gameRef, {
+          callVote: 0,
+          voteSession: {
+            active: true,
+            votes: initialVotes,
+            voted,
+          },
+        });
+      } else {
+        transaction.update(gameRef, { callVote: newCallVote });
+      }
+    });
+  };
+
+const castVote = async (targetId) => {
+  if (!gameId || !currentUserId) return;
+  const gameRef = doc(db, "games", gameId);
+
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(gameRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data();
+    const session = data.voteSession;
+    if (!session?.active) return;
+    if (session.voted[currentUserId]) return; // already voted
+
+    const votes = { ...session.votes };
+    const voted = { ...session.voted };
+
+    // register vote
+    votes[targetId] = (votes[targetId] || 0) + 1;
+    voted[currentUserId] = true;
+
+    transaction.update(gameRef, {
+      "voteSession.votes": votes,
+      "voteSession.voted": voted,
     });
 
+    const alivePlayers = Object.values(data.players).filter(p => p.alive);
+    const totalAlive = alivePlayers.length;
+
+    // Check if all alive players voted
+    const aliveIds = Object.keys(data.players).filter(pid => data.players[pid].alive);
+    const allVoted = aliveIds.every(pid => voted[pid]);
+
+    // Check skip majority only among alive players
+    const skipVotes = votes["skip"] || 0;
+    const skipMajority = skipVotes / totalAlive >= 0.5;
+
+    if (allVoted || skipMajority) {
+      // trigger endVote after transaction
+      setTimeout(() => endVote(), 0);
+    }
+
+  });
+};
+
+
+  const endVote = async () => {
+    if (!gameId) return;
     const gameRef = doc(db, "games", gameId);
+    const snap = await getDoc(gameRef);
+    if (!snap.exists()) return;
+
+    const { players, voteSession } = snap.data();
+    const totalPlayers = Object.keys(players).length;
+
+    let maxId = null;
+    let maxVotes = 0;
+    for (const [pid, count] of Object.entries(voteSession.votes)) {
+      if (count > maxVotes) {
+        maxVotes = count;
+        maxId = pid;
+      }
+    }
+
+    const updates = { "voteSession.active": false };
+
+    if (maxId !== "skip" && maxVotes / totalPlayers >= 0.5) {
+      updates[`players.${maxId}`] = deleteField();
+      updates.turnOrder = Object.keys(players).filter((p) => p !== maxId);
+    }
+
     await updateDoc(gameRef, updates);
   };
 
-  // Turn timer
-  useEffect(() => {
-    if (!myTurn) return;
-    if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-
-    turnTimerRef.current = setTimeout(() => {
-      if (myTurn) advanceTurn();
-    }, 30000);
-
-    return () => {
-      if (turnTimerRef.current) clearTimeout(turnTimerRef.current);
-    };
-  }, [myTurn]);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -191,15 +249,6 @@ export default function Game() {
 
     const updates = { [`players.${currentUserId}`]: deleteField() };
 
-    // Remove player from turnOrder
-    const newTurnOrder = turnOrder.filter((id) => id !== currentUserId);
-    updates.turnOrder = newTurnOrder;
-
-    // If leaving player had the turn, give it to the next in order
-    if (players[currentUserId]?.isTurn && newTurnOrder.length > 0) {
-      updates[`players.${newTurnOrder[0]}.isTurn`] = true;
-    }
-
     await updateDoc(gameRef, updates);
 
     router.push("/play");
@@ -217,9 +266,63 @@ export default function Game() {
         )}
 
         <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
-          {myTurn ? "Your turn! Send a message (30s)" : "Waiting for others..."}
+          {voteSession?.active
+            ? "Voting phase!"
+            : alive
+            ? "Type a message..."
+            : "spectating"}
         </Text>
 
+	{/* Call Vote / Voting UI */}
+	{players?.[currentUserId]?.alive && ( // ✅ Only show if alive
+	  !voteSession?.active ? (
+	    <TouchableOpacity
+	      style={styles.voteButton}
+	      onPress={callForVote}
+	    >
+	      <Text style={{ color: "#fff" }}>Call for Vote</Text>
+	    </TouchableOpacity>
+	  ) : (
+	    <View style={{ marginBottom: 10 }}>
+	      <Text style={{ color: "#fff", marginBottom: 5 }}>Vote for a player:</Text>
+
+	      {Object.keys(players)
+		.filter((pid) => players[pid].alive) //only list alive players
+		.map((pid) => (
+		  <TouchableOpacity
+		    key={pid}
+		    style={styles.voteButton}
+		    onPress={() => castVote(pid)}
+		    disabled={voteSession.voted?.[currentUserId]}
+		  >
+		    <Text style={{ color: "#fff" }}>{players[pid].name}</Text>
+		  </TouchableOpacity>
+		))}
+
+	      {/* Skip option */}
+	      <TouchableOpacity
+		style={styles.voteButton}
+		onPress={() => castVote("skip")}
+		disabled={voteSession.voted?.[currentUserId]}
+	      >
+		<Text style={{ color: "#fff" }}>Skip</Text>
+	      </TouchableOpacity>
+
+	      {/* Host-only force end */}
+	      {gameData?.hostId === currentUserId && (
+		<TouchableOpacity
+		  style={styles.voteButton}
+		  onPress={endVote}
+		>
+		  <Text style={{ color: "red" }}>End Vote (Host only)</Text>
+		</TouchableOpacity>
+	      )}
+	    </View>
+	  )
+	)}
+
+
+        {/* Chat */}
         <View style={styles.chatContainer}>
           <FlatList
             ref={flatListRef}
@@ -250,26 +353,27 @@ export default function Game() {
           />
         </View>
 
+        {/* Chat Input */}
         <View style={styles.chatInputRow}>
           <TextInput
             style={[
               styles.textInput,
-              { borderColor: myTurn ? "#1ED760" : "#555" },
+              { borderColor: alive ? "#1ED760" : "#555" },
             ]}
             placeholder="Type a message..."
             placeholderTextColor="#888"
             value={newMessage}
             onChangeText={setNewMessage}
             onSubmitEditing={sendMessage}
-            editable={myTurn}
+            editable={alive}
           />
           <TouchableOpacity
             style={[
               styles.submitButton,
-              { backgroundColor: myTurn ? "#1ED760" : "#555" },
+              { backgroundColor: alive ? "#1ED760" : "#555" },
             ]}
             onPress={sendMessage}
-            disabled={!myTurn || !newMessage.trim()}
+            disabled={!alive || !newMessage.trim()}
           >
             <Text style={{ color: "#fff", fontWeight: "bold" }}>SEND</Text>
           </TouchableOpacity>
@@ -284,18 +388,11 @@ export default function Game() {
 }
 
 const styles = StyleSheet.create({
-  backgroundStyle: {
-    flex: 1,
-    backgroundColor: "#121212",
-  },
-  container: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 65,
-  },
+  backgroundStyle: { flex: 1, backgroundColor: "#121212" },
+  container: { flex: 1, padding: 20, paddingTop: 65 },
   head: {
     fontSize: 50,
-    fontFamily: 'Orbitron-Medium',
+    fontFamily: "Orbitron-Medium",
     padding: 20,
     color: "#FFFFFF",
     textAlign: "center",
@@ -342,6 +439,13 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     fontSize: 20,
     textAlign: "center",
+  },
+  voteButton: {
+    padding: 10,
+    marginVertical: 3,
+    backgroundColor: "#333",
+    borderRadius: 8,
+    alignItems: "center",
   },
 });
 
