@@ -12,6 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,9 +20,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { auth, db } from "./services/firebase";
+import { getRandomTrack } from "./utils/helpers";
 
 const FRIENDLY_NAMES = [
   "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
@@ -41,19 +43,31 @@ export default function Game() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
+  const [currentSong, setCurrentSong] = useState(null);
 
   const flatListRef = useRef(null);
-
   const players = gameData?.players || {};
   const alive = currentUserId && players[currentUserId]?.alive;
   const voteSession = gameData?.voteSession || null;
 
+  // --- Load shared song from Firestore when gameData updates ---
+  useEffect(() => {
+    if (gameData?.song) {
+      setCurrentSong(gameData.song);
+    } else {
+      setCurrentSong(null);
+    }
+  }, [gameData?.song]);
+
+  // Random player name
   useEffect(() => {
     if (!currentUserId || playerName) return;
-    const randomName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
+    const randomName =
+      FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
     setPlayerName(randomName);
   }, [currentUserId]);
 
+  // Auth
   useEffect(() => {
     if (currentUserId) return;
     const unsub = onAuthStateChanged(auth, (u) => {
@@ -62,6 +76,7 @@ export default function Game() {
     return unsub;
   }, [currentUserId]);
 
+  // Game data updates
   useEffect(() => {
     if (!gameId) return;
     const gameRef = doc(db, "games", gameId);
@@ -75,37 +90,71 @@ export default function Game() {
     return unsub;
   }, [gameId]);
 
+  // Add self to game + ensure one shared song is created (transactional)
   useEffect(() => {
     if (!gameId || !currentUserId || !playerName) return;
 
-    const addSelf = async () => {
+    const addSelfAndEnsureSong = async () => {
       const gameRef = doc(db, "games", gameId);
 
+      // add this player (merge so we don't overwrite other fields)
       await setDoc(gameRef, {
         players: {
-          [currentUserId]: {
-            name: playerName,
-            alive: true
-          }
+          [currentUserId]: { name: playerName, alive: true }
         }
       }, { merge: true });
+
+      // Use a transaction to set the song only if it's not already set.
+      try {
+        await runTransaction(db, async (transaction) => {
+          const snap = await transaction.get(gameRef);
+          if (!snap.exists()) return;
+          const data = snap.data();
+
+          // If song already exists, do nothing
+          if (data && data.song) return;
+
+          // Choose players object to pass to getRandomTrack:
+          // Prefer database players if present, otherwise fallback to local players
+          const playersForPick = (data && data.players) ? data.players : (players || {});
+
+          // Safely attempt to pick a random track
+          let song;
+          try {
+            song = getRandomTrack(playersForPick);
+          } catch (err) {
+            song = null;
+          }
+
+          // Fallback if no song could be selected
+          if (!song) {
+            song = { name: "No song", artist: "", albumCover: "" };
+          }
+
+          transaction.update(gameRef, { song });
+        });
+      } catch (err) {
+        console.warn("Failed to set shared song in transaction:", err);
+      }
     };
-    addSelf();
+
+    addSelfAndEnsureSong();
   }, [gameId, currentUserId, playerName]);
 
+  // Scroll chat
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
 
+  // Vote modal
   useEffect(() => {
     setModalVisible(!!voteSession?.active && alive);
   }, [voteSession?.active, alive]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !currentUserId) return;
-
     const gameRef = doc(db, "games", gameId);
     const snap = await getDoc(gameRef);
     if (!snap.exists()) return;
@@ -114,7 +163,7 @@ export default function Game() {
       id: Date.now().toString(),
       senderId: currentUserId,
       senderName: players[currentUserId]?.name || playerName,
-      text: newMessage.trim(),
+      text: newMessage.trim()
     };
 
     const updatedMessages = [...messages, newMsg];
@@ -123,29 +172,29 @@ export default function Game() {
   };
 
   const callForVote = async () => {
-    if (!gameId || !currentUserId) return;
+    // guard: do nothing if spectating or missing data
+    if (!gameId || !currentUserId || !alive) return;
     const gameRef = doc(db, "games", gameId);
 
     await runTransaction(db, async (transaction) => {
       const snap = await transaction.get(gameRef);
       if (!snap.exists()) return;
       const data = snap.data();
-      const aliveIds = Object.keys(data.players || {}).filter((pid) => data.players[pid].alive);
+      const aliveIds = Object.keys(data.players || {}).filter(
+        (pid) => data.players[pid].alive
+      );
       const votedPlayers = data.callVoteList || [];
       const hasVoted = votedPlayers.includes(currentUserId);
 
-      let updatedCallVoteList;
-      if (hasVoted) {
-        updatedCallVoteList = votedPlayers.filter((pid) => pid !== currentUserId);
-      } else {
-        updatedCallVoteList = [...votedPlayers, currentUserId];
-      }
+      const updatedCallVoteList = hasVoted
+        ? votedPlayers.filter((pid) => pid !== currentUserId)
+        : [...votedPlayers, currentUserId];
 
       const newCallVoteCount = updatedCallVoteList.length;
 
       transaction.update(gameRef, {
         callVoteList: updatedCallVoteList,
-        callVote: newCallVoteCount,
+        callVote: newCallVoteCount
       });
 
       if (newCallVoteCount / aliveIds.length > 0.5 && !data.voteSession?.active) {
@@ -160,7 +209,7 @@ export default function Game() {
         transaction.update(gameRef, {
           callVote: 0,
           callVoteList: [],
-          voteSession: { active: true, votes: initialVotes, voted },
+          voteSession: { active: true, votes: initialVotes, voted }
         });
       }
     });
@@ -187,7 +236,7 @@ export default function Game() {
 
       transaction.update(gameRef, {
         "voteSession.votes": votes,
-        "voteSession.voted": voted,
+        "voteSession.voted": voted
       });
 
       const aliveIds = Object.keys(data.players).filter((pid) => data.players[pid].alive);
@@ -237,29 +286,51 @@ export default function Game() {
   const aliveCount = Object.values(players).filter(p => p.alive).length;
   const currentPlayerVoted = gameData?.callVoteList?.includes(currentUserId);
 
+  const imageUri =
+    currentSong?.albumCover ??
+    currentSong?.image ??
+    "https://via.placeholder.com/50";
+
   return (
     <View style={styles.backgroundStyle}>
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS !== "web" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS !== "web" ? "padding" : undefined}
+      >
         <Text style={styles.head}>OFF BEAT</Text>
-        {playerName && <Text style={styles.playerName}>Your name: {playerName}</Text>}
 
-        <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
-          {voteSession?.active ? "Voting phase!" : alive ? "Type a message..." : "spectating"}
-        </Text>
-
-        {players?.[currentUserId]?.alive && !voteSession?.active && (
+        <View style={styles.topRow}>
           <TouchableOpacity
-            style={[styles.voteButton, { backgroundColor: currentPlayerVoted ? "#1ED760" : "#333" }]}
+            style={[
+              styles.voteButton,
+              styles.callVoteButton,
+              { backgroundColor: !alive ? "#555" : currentPlayerVoted ? "#1ED760" : "#333" }
+            ]}
             onPress={callForVote}
+            disabled={!alive} // disabled when spectating
           >
-            <Text style={{ margin:4,color: "#fff", fontWeight: "bold" }}>Call for Vote</Text>
+            <Text style={{ margin: 4, color: "#fff", fontWeight: "bold" }}>
+              Call for Vote
+            </Text>
             <Text style={{ color: "#fff", margin: 4 }}>
               {callVoteCount}/{aliveCount} voted
             </Text>
           </TouchableOpacity>
-        )}
 
-        <Modal animationType="slide" transparent visible={modalVisible} onRequestClose={() => setModalVisible(false)}>
+          <TouchableOpacity style={styles.quitButton} onPress={leaveLobby}>
+            <Text style={{ color: "#fff", fontWeight: "bold", textAlign: "center" }}>
+              QUIT
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Modal */}
+        <Modal
+          animationType="slide"
+          transparent
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
               <Text style={{ color: "#1ED760", textAlign: "center", margin: 5, fontWeight: "bold" }}>
@@ -278,7 +349,7 @@ export default function Game() {
                       disabled={voteSession?.voted?.[currentUserId]}
                     >
                       <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                        {players[pid].name} 
+                        {players[pid].name + (currentUserId == pid ? " (You)" : "")}
                       </Text>
                       <Text style={{ color: "#fff", fontWeight: "bold" }}>
                         ({votesCount})
@@ -298,16 +369,27 @@ export default function Game() {
                 </Text>
               </TouchableOpacity>
 
-              {gameData?.hostId === currentUserId && (
-                <TouchableOpacity style={[styles.voteButton, styles.voteButtonModal]} onPress={endVote}>
-                  <Text style={{ color: "red", fontWeight: "bold" }}>End Vote (Host only)</Text>
-                </TouchableOpacity>
-              )}
             </View>
           </View>
         </Modal>
 
         <View style={styles.chatContainer}>
+          {/* Now Playing */}
+          {currentSong && (
+            <View style={styles.nowPlayingContainer}>
+              <Image source={{ uri: imageUri }} style={styles.albumCover} />
+              <View style={styles.songInfo}>
+                <Text style={styles.songName} numberOfLines={1} ellipsizeMode="tail">
+                  {currentSong.name}
+                </Text>
+                <Text style={styles.artistName} numberOfLines={1} ellipsizeMode="tail">
+                  {currentSong.artist}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Chat */}
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -315,7 +397,7 @@ export default function Game() {
             renderItem={({ item }) => {
               const isOwn = item.senderId === currentUserId;
               return (
-                <View style={{ marginBottom: 10, alignItems: isOwn ? "flex-end" : "flex-start" }}>
+                <View style={{ marginBottom: 2, alignItems: isOwn ? "flex-end" : "flex-start" }}>
                   <Text style={styles.senderName}>{item.senderName}</Text>
                   <View style={[styles.chatBubble, isOwn ? styles.ownBubble : styles.otherBubble]}>
                     <Text style={styles.chatMessage}>{item.text}</Text>
@@ -330,7 +412,7 @@ export default function Game() {
         <View style={styles.chatInputRow}>
           <TextInput
             style={[styles.textInput, { borderColor: alive ? "#1ED760" : "#555" }]}
-            placeholder="Type a message..."
+            placeholder={voteSession?.active ? "Voting Phase!" : alive ? "Type a message..." : "Spectating..."}
             placeholderTextColor="#888"
             value={newMessage}
             onChangeText={setNewMessage}
@@ -347,10 +429,6 @@ export default function Game() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
-      <TouchableOpacity onPress={leaveLobby}>
-        <Text style={styles.backButton}>QUIT</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -358,33 +436,130 @@ export default function Game() {
 const styles = StyleSheet.create({
   backgroundStyle: { flex: 1, backgroundColor: "#121212" },
   container: { flex: 1, padding: 20, paddingTop: 65 },
-  head: { fontSize: 50, fontFamily: "Orbitron-Medium", padding: 20, color: "#FFFFFF", textAlign: "center" },
-  playerName: { fontSize: 18, color: "#1ED760", marginBottom: 10, textAlign: "center" },
-  chatContainer: { flex: 1, borderWidth: 1, borderColor: "#717171", padding: 10, borderRadius: 10, justifyContent: "flex-end" },
-  chatBubble: { borderRadius: 10, paddingVertical: 6, paddingHorizontal: 25, maxWidth: "75%" },
+  head: {
+    fontSize: 50,
+    fontFamily: "Orbitron-Medium",
+    padding: 20,
+    paddingTop: 0,
+    color: "#FFFFFF",
+    textAlign: "center"
+  },
+  playerName: {
+    fontSize: 16,
+    color: "#1ED760",
+    marginBottom: 1,
+    textAlign: "left"
+  },
+  chatContainer: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#717171",
+    padding: 10,
+    borderRadius: 10,
+    justifyContent: "flex-end"
+  },
+  chatBubble: {
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 22,
+    maxWidth: "75%"
+  },
   ownBubble: { backgroundColor: "#1e1e1e" },
-  otherBubble: { backgroundColor: "#1e1e1e", borderWidth: 1, borderColor: "#666" },
-  senderName: { fontSize: 12, color: "#aaa", marginBottom: 2 },
+  otherBubble: {
+    backgroundColor: "#1e1e1e",
+    borderWidth: 1,
+    borderColor: "#666"
+  },
+  senderName: { fontSize: 10, color: "#aaa", marginBottom: 1},
   chatMessage: { fontSize: 18, color: "#fff" },
-  chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 5 },
-  textInput: { flex: 1, height: 50, borderWidth: 2, borderRadius: 8, paddingHorizontal: 15, color: "#fff", marginRight: 10 },
-  submitButton: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 8 },
-  backButton: { color: "#1ED760", marginTop: 10, padding: 10, paddingBottom: 40, fontSize: 20, textAlign: "center" },
+  chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 10, marginBottom:30},
+  textInput: {
+    flex: 1,
+    height: 50,
+    borderWidth: 2,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    color: "#fff",
+    marginRight: 10
+  },
+  submitButton: { paddingVertical: 16, paddingHorizontal: 20, borderRadius: 8 },
   voteButton: {
     padding: 10,
-    flexDirection:'row',
-    justifyContent:'space-between',   
+    flexDirection: "row",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     marginVertical: 5,
     backgroundColor: "#333",
-    borderRadius: 50,
+    borderRadius: 10
   },
   voteButtonModal: {
     width: 260,
-    flexDirection: 'row',
+    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "center"
   },
-  modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.6)" },
-  modalContainer: { width: "85%", backgroundColor: "#121212", borderRadius: 50, padding: 5, paddingHorizontal: 0, alignItems: "center" },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.6)"
+  },
+  modalContainer: {
+    width: "85%",
+    backgroundColor: "#121212",
+    borderRadius: 50,
+    padding: 5,
+    paddingBottom:20,
+    paddingHorizontal: 0,
+    alignItems: "center"
+  },
+
+  // Call Vote + Quit row
+  topRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 5,
+    gap: 10
+  },
+  callVoteButton: {
+    flex: 0.8,
+    paddingVertical:7,
+  },
+  quitButton: {
+    flex: 0.2,
+    backgroundColor: "red",
+    paddingVertical: 10,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center"
+  },
+
+  // Now Playing
+  nowPlayingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#333",
+    padding: 8,
+    borderRadius: 8,
+    marginBottom: 10,
+    width: "100%"
+  },
+  albumCover: { width:35, height: 35, borderRadius: 5 },
+  songInfo: {
+    marginLeft: 10,
+    flex: 1
+  },
+  songName: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    flexShrink: 1,
+    flexWrap: "wrap"
+  },
+  artistName: {
+    color: "#fff",
+    fontSize: 14,
+    flexShrink: 1,
+    flexWrap: "wrap"
+  }
 });
