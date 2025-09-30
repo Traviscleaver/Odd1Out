@@ -113,12 +113,21 @@ export default function Join() {
     addSelf();
   }, [gameId, currentUserId, addedToPlayers]);
 
-  // useEffect(() => {
-  //   if (addedToPlayers && currentUserId && !players.includes(currentUserId)) {
-  //     router.replace("/play")
-  //     alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]);
-  //   }
-  // }, [players]);
+  useEffect(() => {
+    getDoc(doc(db, "games", gameId)).then(snap => {
+      if (snap.exists()) {
+        const data = snap.data();
+        console.log("data", data.players);
+        const player = data.players[currentUserId];
+        if (!player) return;
+        console.log("player", player);
+        if (!player.alive) {
+          alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]);
+          leaveLobby();
+        }
+      }
+    });
+  }, [players]);
 
   // Remove user from players when leaving
   const leaveLobby = async () => {
@@ -164,13 +173,7 @@ export default function Join() {
   const handleKickPlayer = async (playerId) => {
     if (gameId && playerId) {
       const gameRef = doc(db, "games", gameId);
-      if (Object.keys(players).length === 1) {
-        await deleteDoc(gameRef);
-      } else {
-        await updateDoc(gameRef, {
-          players: arrayRemove(playerId),
-        });
-      }
+      updateDoc(gameRef, { [`players.${playerId}.alive`]: false }, { merge: true });
     }
   };
 
