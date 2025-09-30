@@ -116,7 +116,7 @@ export default function Join() {
 
   useEffect(() => {
     if (currentUserId && !players.includes(currentUserId)) {
-      router.push("/play")
+      router.replace("/play")
       alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]);
     }
   }, [players]);
