@@ -72,7 +72,6 @@ export default function Game() {
         setGameData(data);
         setMessages(data.messages || []);
         if (data.voteSession?.active) {
-          console.log(data.voteSession);
           const aliveIds = Object.keys(data.players).filter((pid) => data.players[pid].alive);
           const allVoted = aliveIds.every(pid => data.voteSession.voted[pid]);
           if (allVoted) {
@@ -255,10 +254,6 @@ export default function Game() {
         secondMaxVotes = count;
       }
     }
-
-    console.log("vote session", voteSession);
-    console.log("maxvotes", maxVotes);
-    console.log("secondmaxvotes", secondMaxVotes);
 
     const updates = { "voteSession.active": false };
 
