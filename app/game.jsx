@@ -51,7 +51,7 @@ export default function Game() {
     } else {
       setCurrentSong(null);
     }
-  }, [gameData?.song]);
+  }, [gameData]);
 
   // Auth
   useEffect(() => {
@@ -71,6 +71,14 @@ export default function Game() {
         const data = snap.data();
         setGameData(data);
         setMessages(data.messages || []);
+        if (data.voteSession?.active) {
+          console.log(data.voteSession);
+          const aliveIds = Object.keys(data.players).filter((pid) => data.players[pid].alive);
+          const allVoted = aliveIds.every(pid => data.voteSession.voted[pid]);
+          if (allVoted) {
+            endVote();
+          }
+        }
       }
     });
     return unsub;
@@ -78,15 +86,16 @@ export default function Game() {
 
   // Pick one random song
   useEffect(() => {
-    if (!gameId || !currentUserId || !playerName) return;
+    if (!gameId || !currentUserId) return;
 
     const pickSong = async () => {
       const gameRef = doc(db, "games", gameId);
 
       const snap = await getDoc(gameRef);
-      if (!snap.exists()) return;
-      const data = snap.data();
-      setPlayerName(data.players[currentUserId].name);
+      if (snap.exists()) {
+        const data = snap.data();
+        setPlayerName(data.players[currentUserId].name);
+      }
 
 
       // Use a transaction to set the song only if it's not already set.
@@ -223,12 +232,6 @@ export default function Game() {
         "voteSession.votes": votes,
         "voteSession.voted": voted
       });
-
-      const aliveIds = Object.keys(data.players).filter((pid) => data.players[pid].alive);
-      const allVoted = aliveIds.every(pid => voted[pid]);
-      const skipMajority = (votes["skip"] || 0) / aliveIds.length >= 0.5;
-
-      if (allVoted || skipMajority) setTimeout(() => endVote(), 0);
     });
   };
 
@@ -242,18 +245,28 @@ export default function Game() {
 
     let maxId = null;
     let maxVotes = 0;
+    let secondMaxVotes = 0;
     for (const [pid, count] of Object.entries(voteSession.votes)) {
-      if (pid === "skip") continue;
       if (count > maxVotes) {
+        secondMaxVotes = maxVotes;
         maxVotes = count;
         maxId = pid;
+      } else if (count > secondMaxVotes) {
+        secondMaxVotes = count;
       }
     }
 
+    console.log("vote session", voteSession);
+    console.log("maxvotes", maxVotes);
+    console.log("secondmaxvotes", secondMaxVotes);
+
     const updates = { "voteSession.active": false };
 
-    if (maxId && maxVotes > 0) {
-      updates[`players.${maxId}.alive`] = false;
+
+    if (maxId && maxVotes > 0 && maxVotes !== secondMaxVotes) {
+      if (maxId !== "skip") {
+        updates[`players.${maxId}.alive`] = false;
+      }
       updates.turnOrder = Object.keys(players).filter((p) => p !== maxId);
     }
 
