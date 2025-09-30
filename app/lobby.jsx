@@ -135,21 +135,21 @@ export default function Join() {
     try {
       if (gameId && currentUserId) {
         const gameRef = doc(db, "games", gameId);
-        if (isHost) { // change host
+
+        if (currentUserId === hostId) {
           const newHostId = Object.keys(players)
+            .filter((id) => currentUserId === id)
             .filter((id) => players[id]?.alive)[0];
-          if (newHostId)
-            updateDoc(doc(db, "games", gameId), { hostId: newHostId });
+
+          if (newHostId) {
+            await updateDoc(gameRef, { hostId: newHostId });
+          }
         }
 
         if (Object.keys(players).length <= 1) {
           await deleteDoc(gameRef);
         } else {
-          await updateDoc(gameRef, {
-            [`players.${currentUserId}`]: deleteField()
-          }, {
-            merge: true
-          });
+          await updateDoc(gameRef, { [`players.${currentUserId}`]: deleteField() }, { merge: true });
         }
       }
     } catch (e) {
