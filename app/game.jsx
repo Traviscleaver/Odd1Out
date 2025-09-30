@@ -6,13 +6,14 @@ import {
   getDoc,
   onSnapshot,
   runTransaction,
-  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
+  Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -40,12 +41,17 @@ export default function Game() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const flatListRef = useRef(null);
-  const turnTimerRef = useRef(null);
 
   const players = gameData?.players || {};
   const alive = currentUserId && players[currentUserId]?.alive;
-
   const voteSession = gameData?.voteSession || null;
+  const callVote = gameData?.callVote || 0;
+
+  const alivePlayers = Object.values(players).filter((p) => p.alive);
+  const totalAlive = alivePlayers.length;
+
+  // local modal state auto-tracks gameData
+  const [voteModalVisible, setVoteModalVisible] = useState(false);
 
   // Assign random friendly name
   useEffect(() => {
@@ -78,23 +84,39 @@ export default function Game() {
     return unsub;
   }, [gameId]);
 
-useEffect(() => {
-  if (!gameId || !currentUserId || !playerName) return;
+  useEffect(() => {
+    if (!gameId || !currentUserId || !playerName) return;
 
-  const addSelf = async () => {
-    const gameRef = doc(db, "games", gameId);
-    const snap = await getDoc(gameRef);
-
-      // Update only the nested fields for this player (preserves other nested fields)
+    const addSelf = async () => {
+      const gameRef = doc(db, "games", gameId);
       await updateDoc(gameRef, {
         [`players.${currentUserId}.name`]: playerName,
         [`players.${currentUserId}.alive`]: true,
       });
-  };
+    };
 
-  addSelf();
-}, [gameId, currentUserId, playerName]);
+    addSelf();
+  }, [gameId, currentUserId, playerName]);
 
+  // Auto open/close modal based on vote session
+  useEffect(() => {
+    if (voteSession?.active) {
+      setVoteModalVisible(true);
+
+      const voted = Object.keys(voteSession.voted || {}).filter(
+        (pid) => voteSession.voted[pid]
+      );
+      const aliveIds = Object.keys(players).filter((pid) => players[pid].alive);
+
+      const allVoted = aliveIds.every((pid) => voteSession.voted[pid]);
+
+      if (allVoted) {
+        setVoteModalVisible(false);
+      }
+    } else {
+      setVoteModalVisible(false);
+    }
+  }, [voteSession, players]);
 
   // Send message
   const sendMessage = async () => {
@@ -113,12 +135,30 @@ useEffect(() => {
     setNewMessage("");
 
     await updateDoc(gameRef, { messages: updatedMessages });
-
   };
 
+  // Auto-scroll chat
+  useEffect(() => {
+    if (flatListRef.current && messages.length > 0) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
 
-  // === Voting System ===
+  // Leave lobby
+  const leaveLobby = async () => {
+    if (!gameId || !currentUserId) return;
 
+    const gameRef = doc(db, "games", gameId);
+    const snap = await getDoc(gameRef);
+    if (!snap.exists()) return;
+
+    const updates = { [`players.${currentUserId}`]: deleteField() };
+    await updateDoc(gameRef, updates);
+
+    router.push("/play");
+  };
+
+  // Call vote handler
   const callForVote = async () => {
     if (!gameId) return;
     const gameRef = doc(db, "games", gameId);
@@ -132,7 +172,7 @@ useEffect(() => {
       const newCallVote = (data.callVote || 0) + 1;
 
       if (newCallVote / totalPlayers > 0.5 && !data.voteSession?.active) {
-        // Start a vote session
+        // Start vote session
         const initialVotes = {};
         const voted = {};
         Object.keys(data.players).forEach((pid) => {
@@ -155,103 +195,31 @@ useEffect(() => {
     });
   };
 
-const castVote = async (targetId) => {
-  if (!gameId || !currentUserId) return;
-  const gameRef = doc(db, "games", gameId);
-
-  await runTransaction(db, async (transaction) => {
-    const snap = await transaction.get(gameRef);
-    if (!snap.exists()) return;
-
-    const data = snap.data();
-    const session = data.voteSession;
-    if (!session?.active) return;
-    if (session.voted[currentUserId]) return; // already voted
-
-    const votes = { ...session.votes };
-    const voted = { ...session.voted };
-
-    // register vote
-    votes[targetId] = (votes[targetId] || 0) + 1;
-    voted[currentUserId] = true;
-
-    transaction.update(gameRef, {
-      "voteSession.votes": votes,
-      "voteSession.voted": voted,
-    });
-
-    const alivePlayers = Object.values(data.players).filter(p => p.alive);
-    const totalAlive = alivePlayers.length;
-
-    // Check if all alive players voted
-    const aliveIds = Object.keys(data.players).filter(pid => data.players[pid].alive);
-    const allVoted = aliveIds.every(pid => voted[pid]);
-
-    // Check skip majority only among alive players
-    const skipVotes = votes["skip"] || 0;
-    const skipMajority = skipVotes / totalAlive >= 0.5;
-
-    if (allVoted || skipMajority) {
-      // trigger endVote after transaction
-      setTimeout(() => endVote(), 0);
-    }
-
-  });
-};
-
-
-  const endVote = async () => {
-    if (!gameId) return;
-    const gameRef = doc(db, "games", gameId);
-    const snap = await getDoc(gameRef);
-    if (!snap.exists()) return;
-
-    const { players, voteSession } = snap.data();
-    const totalPlayers = Object.keys(players).length;
-
-    let maxId = null;
-    let maxVotes = 0;
-    for (const [pid, count] of Object.entries(voteSession.votes)) {
-      if (count > maxVotes) {
-        maxVotes = count;
-        maxId = pid;
-      }
-    }
-
-    const updates = { "voteSession.active": false };
-
-    if (maxId !== "skip" && maxVotes / totalPlayers >= 0.5) {
-      updates[`players.${maxId}`] = deleteField();
-      updates.turnOrder = Object.keys(players).filter((p) => p !== maxId);
-    }
-
-    await updateDoc(gameRef, updates);
-  };
-
-
-  // Auto-scroll chat
-  useEffect(() => {
-    if (flatListRef.current && messages.length > 0) {
-      flatListRef.current.scrollToEnd({ animated: true });
-    }
-  }, [messages]);
-
-  // Leave lobby
-  const leaveLobby = async () => {
+  // Cast vote
+  const castVote = async (targetId) => {
     if (!gameId || !currentUserId) return;
-
     const gameRef = doc(db, "games", gameId);
-    const snap = await getDoc(gameRef);
-    if (!snap.exists()) return;
 
-    const data = snap.data();
-    const { players, turnOrder } = data;
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(gameRef);
+      if (!snap.exists()) return;
 
-    const updates = { [`players.${currentUserId}`]: deleteField() };
+      const data = snap.data();
+      const session = data.voteSession;
+      if (!session?.active) return;
+      if (session.voted[currentUserId]) return; // already voted
 
-    await updateDoc(gameRef, updates);
+      const votes = { ...session.votes };
+      const voted = { ...session.voted };
 
-    router.push("/play");
+      votes[targetId] = (votes[targetId] || 0) + 1;
+      voted[currentUserId] = true;
+
+      transaction.update(gameRef, {
+        "voteSession.votes": votes,
+        "voteSession.voted": voted,
+      });
+    });
   };
 
   return (
@@ -265,65 +233,36 @@ const castVote = async (targetId) => {
           <Text style={styles.playerName}>Your name: {playerName}</Text>
         )}
 
-        <Text style={{ color: "#fff", textAlign: "center", marginBottom: 5 }}>
-          {voteSession?.active
-            ? "Voting phase!"
-            : alive
-            ? "Type a message..."
-            : "spectating"}
-        </Text>
-
-	{/* Call Vote / Voting UI */}
-	{players?.[currentUserId]?.alive && ( // ✅ Only show if alive
-	  !voteSession?.active ? (
-	    <TouchableOpacity
-	      style={styles.voteButton}
-	      onPress={callForVote}
-	    >
-	      <Text style={{ color: "#fff" }}>Call for Vote</Text>
-	    </TouchableOpacity>
-	  ) : (
-	    <View style={{ marginBottom: 10 }}>
-	      <Text style={{ color: "#fff", marginBottom: 5 }}>Vote for a player:</Text>
-
-	      {Object.keys(players)
-		.filter((pid) => players[pid].alive) //only list alive players
-		.map((pid) => (
-		  <TouchableOpacity
-		    key={pid}
-		    style={styles.voteButton}
-		    onPress={() => castVote(pid)}
-		    disabled={voteSession.voted?.[currentUserId]}
-		  >
-		    <Text style={{ color: "#fff" }}>{players[pid].name}</Text>
-		  </TouchableOpacity>
-		))}
-
-	      {/* Skip option */}
-	      <TouchableOpacity
-		style={styles.voteButton}
-		onPress={() => castVote("skip")}
-		disabled={voteSession.voted?.[currentUserId]}
-	      >
-		<Text style={{ color: "#fff" }}>Skip</Text>
-	      </TouchableOpacity>
-
-	      {/* Host-only force end */}
-	      {gameData?.hostId === currentUserId && (
-		<TouchableOpacity
-		  style={styles.voteButton}
-		  onPress={endVote}
-		>
-		  <Text style={{ color: "red" }}>End Vote (Host only)</Text>
-		</TouchableOpacity>
-	      )}
-	    </View>
-	  )
-	)}
-
+        {/* Call to Vote Button + Counter */}
+        {alive && !voteSession?.active && (
+          <View style={styles.voteRow}>
+            <TouchableOpacity style={styles.voteButton} onPress={callForVote}>
+              <Text style={styles.voteButtonText}>Call to Vote</Text>
+            </TouchableOpacity>
+            <Text style={styles.voteCounter}>
+              {callVote}/{Object.keys(players).length}
+            </Text>
+          </View>
+        )}
 
         {/* Chat */}
         <View style={styles.chatContainer}>
+          {/* 🎵 Floating Album Bubble */}
+          <View style={styles.albumBubble}>
+            <Image
+              source={{ uri: "https://via.placeholder.com/100" }}
+              style={styles.albumCover}
+            />
+            <View style={styles.albumTextContainer}>
+              <Text style={styles.albumName}>
+                {gameData?.album?.name || "ALBUM NAME"}
+              </Text>
+              <Text style={styles.albumArtist}>
+                {gameData?.album?.artist || "ARTIST"}
+              </Text>
+            </View>
+          </View>
+
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -350,6 +289,7 @@ const castVote = async (targetId) => {
               );
             }}
             contentContainerStyle={{ paddingBottom: 10 }}
+            style={{ marginTop: 80 }}
           />
         </View>
 
@@ -378,11 +318,39 @@ const castVote = async (targetId) => {
             <Text style={{ color: "#fff", fontWeight: "bold" }}>SEND</Text>
           </TouchableOpacity>
         </View>
-
       </KeyboardAvoidingView>
+
       <TouchableOpacity onPress={leaveLobby}>
         <Text style={styles.backButton}>QUIT</Text>
       </TouchableOpacity>
+
+      {/* 🗳️ Vote Modal */}
+      <Modal visible={voteModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Vote to Eliminate</Text>
+            {Object.entries(players)
+              .filter(([id, p]) => p.alive)
+              .map(([id, p]) => (
+                <TouchableOpacity
+                  key={id}
+                  style={styles.modalOption}
+                  onPress={() => castVote(id)}
+                  disabled={voteSession?.voted?.[currentUserId]}
+                >
+                  <Text style={styles.modalOptionText}>{p.name}</Text>
+                </TouchableOpacity>
+              ))}
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => castVote("skip")}
+              disabled={voteSession?.voted?.[currentUserId]}
+            >
+              <Text style={styles.modalOptionText}>Skip</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -403,6 +371,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: "center",
   },
+  voteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  voteButton: {
+    backgroundColor: "#ff4444",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  voteButtonText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  voteCounter: {
+    marginLeft: 10,
+    color: "#fff",
+    fontSize: 16,
+  },
   chatContainer: {
     flex: 1,
     borderWidth: 1,
@@ -410,7 +396,32 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     justifyContent: "flex-end",
+    position: "relative",
   },
+  albumBubble: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 220,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#666",
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#666",
+    zIndex: 10,
+  },
+  albumCover: {
+    width: 50,
+    height: 50,
+    borderRadius: 4,
+    marginRight: 10,
+    backgroundColor: "#ccc",
+  },
+  albumTextContainer: { flex: 1, justifyContent: "center" },
+  albumName: { fontSize: 14, fontWeight: "bold", color: "#1ED760" },
+  albumArtist: { fontSize: 12, color: "#1ED760" },
   chatBubble: {
     borderRadius: 10,
     paddingVertical: 6,
@@ -440,12 +451,29 @@ const styles = StyleSheet.create({
     fontSize: 20,
     textAlign: "center",
   },
-  voteButton: {
-    padding: 10,
-    marginVertical: 3,
-    backgroundColor: "#333",
-    borderRadius: 8,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
     alignItems: "center",
   },
+  modalContent: {
+    backgroundColor: "#fff",
+    padding: 20,
+    borderRadius: 10,
+    width: "80%",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  modalOption: {
+    backgroundColor: "#eee",
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 5,
+  },
+  modalOptionText: { fontSize: 16, textAlign: "center" },
 });
-
