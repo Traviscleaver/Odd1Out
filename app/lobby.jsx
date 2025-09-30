@@ -37,7 +37,7 @@ export default function Join() {
       if (status === "playing") {
         const data = { [`players.${currentUserId}.topTracks`]: await topTracks }
         updateDoc(doc(db, "games", gameId), data, { merge: true });
-        router.push({
+        router.replace({
           pathname: "/game",
           params: { gameId, lobbyName },
         });
@@ -137,7 +137,7 @@ export default function Join() {
     } catch (e) {
       console.warn("Error removing user from players on leave:", e);
     } finally {
-      router.push("/play");
+      router.replace("/play");
     }
   };
 
