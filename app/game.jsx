@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   otherBubble: {
     backgroundColor: "#1e1e1e",
     borderWidth: 1,
-    borderColor: "#666"
+    borderColor: "#1e1e1e"
   },
   senderName: { fontSize: 10, color: "#aaa", marginBottom: 1},
   chatMessage: { fontSize: 18, color: "#fff" },
