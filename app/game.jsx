@@ -99,15 +99,14 @@ export default function Game() {
     }
   }, [messages]);
 
-useEffect(() => {
-  setModalVisible(!!voteSession?.active && alive);
-}, [voteSession?.active, alive]);
-
+  useEffect(() => {
+    setModalVisible(!!voteSession?.active && alive);
+  }, [voteSession?.active, alive]);
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !currentUserId) return;
-    const gameRef = doc(db, "games", gameId);
 
+    const gameRef = doc(db, "games", gameId);
     const snap = await getDoc(gameRef);
     if (!snap.exists()) return;
 
@@ -284,7 +283,6 @@ useEffect(() => {
                       <Text style={{ color: "#fff", fontWeight: "bold" }}>
                         ({votesCount})
                       </Text>
-                      
                     </TouchableOpacity>
                   );
                 })}
@@ -294,13 +292,10 @@ useEffect(() => {
                 onPress={() => castVote("skip")}
                 disabled={voteSession?.voted?.[currentUserId]}
               >
+                <Text style={{ color: "#fff", fontWeight: "bold" }}>Skip</Text>
                 <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                  Skip
-                </Text>
-<               Text style={{ color: "#fff", fontWeight: "bold" }}>
                   ({voteSession?.votes?.["skip"] || 0})
                 </Text>
-                
               </TouchableOpacity>
 
               {gameData?.hostId === currentUserId && (
@@ -341,6 +336,7 @@ useEffect(() => {
             onChangeText={setNewMessage}
             onSubmitEditing={sendMessage}
             editable={alive}
+            maxLength={150}
           />
           <TouchableOpacity
             style={[styles.submitButton, { backgroundColor: alive ? "#1ED760" : "#555" }]}

@@ -7,15 +7,6 @@ export default function Index() {
   const router = useRouter();
   const [spotifyTimeRemaining, setSpotifyTime] = useState(0);
 
-
-  const handleJoinApple = () => {
-    alert("Not Complete!")
-  }
-
-  const handleUnlinkApple = () => {
-    alert("Not Complete!")
-  }
-
   const handleJoinSpotify = async () => {
     await promptSpotifyLogin();
     setSpotifyTime(checkTokenStatus());
@@ -42,17 +33,6 @@ export default function Index() {
         </> :
         <TouchableOpacity style={styles.submitButton} onPress={handleJoinSpotify}>
           <Text style={styles.submitButtonText}>LINK SPOTIFY</Text>
-        </TouchableOpacity>
-      }
-      {spotifyTimeRemaining <= 0 ?
-        <>
-          <TouchableOpacity style={styles.submitButtonComplete} onPress={handleUnlinkApple}>
-            <Text style={styles.submitButtonText}>APPLE LINKED</Text>
-            {/* <Text style={styles.submitButtonText}>UNLINK APPLE</Text> */}
-          </TouchableOpacity>
-        </> :
-        <TouchableOpacity style={styles.submitButton} onPress={handleJoinApple}>
-          <Text style={styles.submitButtonText}>LINK APPLE</Text>
         </TouchableOpacity>
       }
       <TouchableOpacity onPress={() => router.push("/")}>
