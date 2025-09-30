@@ -7,6 +7,13 @@ import { auth, db } from "./services/firebase";
 import * as spotify from "./services/spotify";
 import { Image } from "react-native";
 
+
+const FRIENDLY_NAMES = [
+  "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
+  "Daisy", "Smiley", "Peanut", "Coco", "Muffin",
+  "Nibbles", "Pumpkin", "Buddy", "Teddy", "Cookie"
+];
+
 export default function Join() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -21,7 +28,6 @@ export default function Join() {
   const [isHost, setIsHost] = useState(String(currentUserId) === String(paramHostId));
   const snapshotUnsubRef = useRef(null);
 
-  ;
   const topTracks = spotify.refreshAndGetToken().then(spotify.getTracks); // promise
 
   // Get current user ID if not passed
@@ -111,7 +117,8 @@ export default function Join() {
     const addSelf = async () => {
       try {
         const gameRef = doc(db, "games", gameId);
-        await updateDoc(gameRef, { [`players.${currentUserId}`]: { alive: true } }, { merge: true });
+        const randomName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
+        await updateDoc(gameRef, { [`players.${currentUserId}`]: { alive: true, name: randomName } }, { merge: true });
         setAddedToPlayers(true);
       } catch (e) {
         console.error("Error adding self to players:", e);
@@ -126,8 +133,6 @@ export default function Join() {
     if (!players[currentUserId].alive) {
       leaveLobby().then(() => alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]));
     }
-    // }
-    // });
   }, [players]);
 
   // Remove user from players when leaving
@@ -197,15 +202,15 @@ export default function Join() {
         {Object.keys(players).length === 0 ? (
           <Text style={{ color: "#aaa", textAlign: "center" }}>Waiting for players...</Text>
         ) : (
-          Object.keys(players).map((player, index) => {
-            if (!players[player]?.alive) return;
-            const isMe = String(player) === String(currentUserId);
+          Object.entries(players).map(([playerId, playerData], index) => {
+            if (!playerData.alive) return;
+            const isMe = String(playerId) === String(currentUserId);
             return (
               <View key={index} style={styles.playerRow}>
                 <Text style={styles.playerItem}>
-                  {`Player ${index + 1}${isMe ? " (You)" : ""} `}
+                  {`${playerData.name}${isMe ? " (You)" : ""} `}
                 </Text>
-                {isHost && <TouchableOpacity onPress={() => handleKickPlayer(player)}>
+                {isHost && <TouchableOpacity onPress={() => handleKickPlayer(playerId)}>
                   <Image source={require("../assets/images/remove.png")} style={{ width: 20, height: 20 }} />
                 </TouchableOpacity>}
               </View>

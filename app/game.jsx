@@ -25,12 +25,6 @@ import {
 import { auth, db } from "./services/firebase";
 import { getRandomTrack } from "./utils/helpers";
 
-const FRIENDLY_NAMES = [
-  "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
-  "Daisy", "Smiley", "Peanut", "Coco", "Muffin",
-  "Nibbles", "Pumpkin", "Buddy", "Teddy", "Cookie"
-];
-
 export default function Game() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -59,14 +53,6 @@ export default function Game() {
     }
   }, [gameData?.song]);
 
-  // Random player name
-  useEffect(() => {
-    if (!currentUserId || playerName) return;
-    const randomName =
-      FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
-    setPlayerName(randomName);
-  }, [currentUserId]);
-
   // Auth
   useEffect(() => {
     if (currentUserId) return;
@@ -90,19 +76,18 @@ export default function Game() {
     return unsub;
   }, [gameId]);
 
-  // Add self to game + ensure one shared song is created (transactional)
+  // Pick one random song
   useEffect(() => {
     if (!gameId || !currentUserId || !playerName) return;
 
-    const addSelfAndEnsureSong = async () => {
+    const pickSong = async () => {
       const gameRef = doc(db, "games", gameId);
 
-      // add this player (merge so we don't overwrite other fields)
-      await setDoc(gameRef, {
-        players: {
-          [currentUserId]: { name: playerName, alive: true }
-        }
-      }, { merge: true });
+      const snap = await getDoc(gameRef);
+      if (!snap.exists()) return;
+      const data = snap.data();
+      setPlayerName(data.players[currentUserId].name);
+
 
       // Use a transaction to set the song only if it's not already set.
       try {
@@ -138,7 +123,7 @@ export default function Game() {
       }
     };
 
-    addSelfAndEnsureSong();
+    pickSong();
   }, [gameId, currentUserId, playerName]);
 
   // Scroll chat
@@ -470,9 +455,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1e1e1e"
   },
-  senderName: { fontSize: 10, color: "#aaa", marginBottom: 1},
+  senderName: { fontSize: 10, color: "#aaa", marginBottom: 1 },
   chatMessage: { fontSize: 18, color: "#fff" },
-  chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 10, marginBottom:30},
+  chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 10, marginBottom: 30 },
   textInput: {
     flex: 1,
     height: 50,
@@ -509,7 +494,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#121212",
     borderRadius: 50,
     padding: 5,
-    paddingBottom:20,
+    paddingBottom: 20,
     paddingHorizontal: 0,
     alignItems: "center"
   },
@@ -523,7 +508,7 @@ const styles = StyleSheet.create({
   },
   callVoteButton: {
     flex: 0.8,
-    paddingVertical:7,
+    paddingVertical: 7,
   },
   quitButton: {
     flex: 0.2,
@@ -544,7 +529,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     width: "100%"
   },
-  albumCover: { width:35, height: 35, borderRadius: 5 },
+  albumCover: { width: 35, height: 35, borderRadius: 5 },
   songInfo: {
     marginLeft: 10,
     flex: 1
