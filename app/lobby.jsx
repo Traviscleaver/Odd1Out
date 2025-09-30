@@ -17,9 +17,11 @@ export default function Join() {
   const [currentUserId, setCurrentUserId] = useState(paramUserId || null);
   const [addedToPlayers, setAddedToPlayers] = useState(false);
   const [status, setStatus] = useState(lobbyStatus || "waiting");
+  const [hostId, setHostId] = useState(paramHostId);
+  const [isHost, setIsHost] = useState(String(currentUserId) === String(paramHostId));
   const snapshotUnsubRef = useRef(null);
 
-  const isHost = String(currentUserId) === String(paramHostId);
+  ;
   const topTracks = spotify.refreshAndGetToken().then(spotify.getTracks); // promise
 
   // Get current user ID if not passed
@@ -27,14 +29,20 @@ export default function Join() {
     if (currentUserId) return;
     const unsub = onAuthStateChanged(auth, (u) => {
       if (u) setCurrentUserId(u.uid);
+      setIsHost(String(u.uid) === String(hostId));
     });
     return unsub;
   }, [currentUserId]);
 
+  useEffect(() => {
+    if (currentUserId && hostId)
+      setIsHost(String(currentUserId) === String(hostId));
+  }, [currentUserId, hostId]);
+
   // Navigate to game when status changes to playing
   useEffect(() => {
     const func = async () => {
-      if (status === "playing") {
+      if (status === "playing" && players[currentUserId]?.alive) {
         const data = { [`players.${currentUserId}.topTracks`]: await topTracks }
         updateDoc(doc(db, "games", gameId), data, { merge: true });
         router.replace({
@@ -77,8 +85,8 @@ export default function Join() {
       (snap) => {
         if (snap.exists()) {
           const data = snap.data();
-          // const playersArray = Array.isArray(data.players) ? data.players : [];
           setPlayers(data.players);
+          setHostId(data.hostId);
 
           if (!lobbyName && data.lobbyName) setLobbyName(data.lobbyName);
           if (data.status) setStatus(data.status);
@@ -105,7 +113,6 @@ export default function Join() {
         const gameRef = doc(db, "games", gameId);
         await updateDoc(gameRef, { [`players.${currentUserId}`]: { alive: true } }, { merge: true });
         setAddedToPlayers(true);
-        getDoc(gameRef).then(snap => console.log(snap.data()));
       } catch (e) {
         console.error("Error adding self to players:", e);
       }
@@ -114,19 +121,13 @@ export default function Join() {
   }, [gameId, currentUserId, addedToPlayers]);
 
   useEffect(() => {
-    getDoc(doc(db, "games", gameId)).then(snap => {
-      if (snap.exists()) {
-        const data = snap.data();
-        console.log("data", data.players);
-        const player = data.players[currentUserId];
-        if (!player) return;
-        console.log("player", player);
-        if (!player.alive) {
-          alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]);
-          leaveLobby();
-        }
-      }
-    });
+    if (!gameId || !currentUserId || !players[currentUserId]) return;
+
+    if (!players[currentUserId].alive) {
+      leaveLobby().then(() => alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]));
+    }
+    // }
+    // });
   }, [players]);
 
   // Remove user from players when leaving
@@ -134,6 +135,13 @@ export default function Join() {
     try {
       if (gameId && currentUserId) {
         const gameRef = doc(db, "games", gameId);
+        if (isHost) { // change host
+          const newHostId = Object.keys(players)
+            .filter((id) => players[id]?.alive)[0];
+          if (newHostId)
+            updateDoc(doc(db, "games", gameId), { hostId: newHostId });
+        }
+
         if (Object.keys(players).length <= 1) {
           await deleteDoc(gameRef);
         } else {
@@ -190,6 +198,7 @@ export default function Join() {
           <Text style={{ color: "#aaa", textAlign: "center" }}>Waiting for players...</Text>
         ) : (
           Object.keys(players).map((player, index) => {
+            if (!players[player]?.alive) return;
             const isMe = String(player) === String(currentUserId);
             return (
               <View key={index} style={styles.playerRow}>
