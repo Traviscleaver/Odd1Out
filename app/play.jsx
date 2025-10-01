@@ -106,7 +106,7 @@ export default function Index() {
           <Text style={styles.buttonText}>CREATE LOBBY</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push("/")}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.backButton}>BACK</Text>
         </TouchableOpacity>
 

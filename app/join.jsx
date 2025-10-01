@@ -247,7 +247,7 @@ export default function Join() {
           <Text style={styles.submitButtonText}>Join With Code</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push("/play")}>
+        <TouchableOpacity onPress={router.back}>
           <Text style={styles.backButtonMain}>Back</Text>
         </TouchableOpacity>
       </View>

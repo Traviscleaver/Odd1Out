@@ -160,7 +160,7 @@ export default function Join() {
     } catch (e) {
       console.warn("Error removing user from players on leave:", e);
     } finally {
-      router.replace("/play");
+      router.back();
     }
   };
 

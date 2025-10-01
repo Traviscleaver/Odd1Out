@@ -35,7 +35,7 @@ export default function Index() {
           <Text style={styles.submitButtonText}>LINK SPOTIFY</Text>
         </TouchableOpacity>
       }
-      <TouchableOpacity onPress={() => router.push("/")}>
+      <TouchableOpacity onPress={router.back}>
         <Text style={styles.backButton}>BACK</Text>
       </TouchableOpacity>
     </View >

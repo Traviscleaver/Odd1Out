@@ -272,7 +272,7 @@ export default function Game() {
     if (!gameId || !currentUserId) return;
     const gameRef = doc(db, "games", gameId);
     await updateDoc(gameRef, { [`players.${currentUserId}`]: deleteField() });
-    router.push("/play");
+    router.back();
   };
 
   const callVoteCount = gameData?.callVoteList?.length || 0;
