@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { auth, db } from "./services/firebase";
 import { generateGameCode } from "./utils/helpers";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Index() {
   const router = useRouter();
@@ -87,110 +88,113 @@ export default function Index() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.head}>PLAY</Text>
+    <SafeAreaView style={styles.wrapper}>
+      <Text style={styles.header}>OFF BEAT</Text>
+      <View style={styles.container} >
+        <Text style={{ ...styles.header, paddingBottom: 200 }}>PLAY</Text>
+        <TouchableOpacity
+          onPress={() => router.push("/join")}
+          style={styles.buttons}
+        >
+          <Text style={styles.buttonText}>JOIN LOBBY</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => router.push("/join")}
-        style={styles.buttons}
-      >
-        <Text style={styles.buttonText}>JOIN LOBBY</Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setModalVisible(true)}
+          style={styles.buttons}
+        >
+          <Text style={styles.buttonText}>CREATE LOBBY</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={() => setModalVisible(true)}
-        style={styles.buttons}
-      >
-        <Text style={styles.buttonText}>CREATE LOBBY</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push("/")}>
+          <Text style={styles.backButton}>BACK</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/")}>
-        <Text style={styles.backButton}>BACK</Text>
-      </TouchableOpacity>
+        <Modal
+          animationType="slide"
+          transparent={true}
+          visible={modalVisible}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>CREATE LOBBY</Text>
 
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>CREATE LOBBY</Text>
+              <TextInput
+                style={[
+                  styles.modalInput,
+                  { borderColor: lobbyNameError ? "red" : "#1ED760" } // dynamic border
+                ]}
+                placeholder="Lobby Name"
+                placeholderTextColor="#fff"
+                value={lobbyName}
+                onChangeText={(text) => {
+                  const slicedText = text.slice(0, 15);
+                  setLobbyName(slicedText);
 
-            <TextInput
-              style={[
-                styles.modalInput,
-                { borderColor: lobbyNameError ? "red" : "#1ED760" } // dynamic border
-              ]}
-              placeholder="Lobby Name"
-              placeholderTextColor="#fff"
-              value={lobbyName}
-              onChangeText={(text) => {
-                const slicedText = text.slice(0, 15);
-                setLobbyName(slicedText);
-
-                if (slicedText.length < 4 || slicedText.length > 15) {
-                  setLobbyNameError("Lobby name must be 4–15 characters");
-                } else {
-                  setLobbyNameError(""); // clear error if valid
-                }
-              }}
-              maxLength={15}
-              onSubmitEditing={handleCreateLobby}
-            />
-
-            {/* Error message under the input */}
-            {!!lobbyNameError && (
-              <Text style={styles.errorText}>{lobbyNameError}</Text>
-            )}
-
-            <Text style={{ color: "#fff", marginBottom: 5 }}>MAX PLAYERS</Text>
-            <View style={styles.playersRow}>
-              {[3, 4, 5, 6, 7, 8].map((num) => (
-                <TouchableOpacity
-                  key={num}
-                  style={[
-                    styles.playerButton,
-                    maxPlayers === num && styles.selectedPlayerButton,
-                  ]}
-                  onPress={() => setMaxPlayers(num)}
-                >
-                  <Text style={styles.playerButtonText}>{num}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.switchRow}>
-              <Text style={{ color: "#fff" }}>PUBLIC LOBBY</Text>
-              <Switch
-                value={isPublic}
-                onValueChange={setIsPublic}
-                thumbColor={isPublic ? "#1ED760" : "#ccc"}
+                  if (slicedText.length < 4 || slicedText.length > 15) {
+                    setLobbyNameError("Lobby name must be 4–15 characters");
+                  } else {
+                    setLobbyNameError(""); // clear error if valid
+                  }
+                }}
+                maxLength={15}
+                onSubmitEditing={handleCreateLobby}
               />
+
+              {/* Error message under the input */}
+              {!!lobbyNameError && (
+                <Text style={styles.errorText}>{lobbyNameError}</Text>
+              )}
+
+              <Text style={{ color: "#fff", marginBottom: 5 }}>MAX PLAYERS</Text>
+              <View style={styles.playersRow}>
+                {[3, 4, 5, 6, 7, 8].map((num) => (
+                  <TouchableOpacity
+                    key={num}
+                    style={[
+                      styles.playerButton,
+                      maxPlayers === num && styles.selectedPlayerButton,
+                    ]}
+                    onPress={() => setMaxPlayers(num)}
+                  >
+                    <Text style={styles.playerButtonText}>{num}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <View style={styles.switchRow}>
+                <Text style={{ color: "#fff" }}>PUBLIC LOBBY</Text>
+                <Switch
+                  value={isPublic}
+                  onValueChange={setIsPublic}
+                  thumbColor={isPublic ? "#1ED760" : "#ccc"}
+                />
+              </View>
+
+              <TouchableOpacity
+                style={styles.submitButton}
+                onPress={handleCreateLobby}
+              >
+                <Text style={styles.submitButtonText}>CREATE</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Text style={styles.backButton}>CANCEL</Text>
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              style={styles.submitButton}
-              onPress={handleCreateLobby}
-            >
-              <Text style={styles.submitButtonText}>CREATE</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={styles.backButton}>CANCEL</Text>
-            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </SafeAreaView >
   );
 }
 
 const styles = StyleSheet.create({
-  head: { fontSize: 50, paddingBottom: 90, color: "#FFFFFF", fontFamily: 'Orbitron-Medium', },
-  container: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#121212" },
-  backButton: { color: "#1ED760", marginTop: 10, padding: 5, fontSize: 20 },
+  header: { fontSize: 50, color: "#FFFFFF", fontFamily: 'Orbitron-Medium', alignSelf: "center" },
+  wrapper: { backgroundColor: "#121212", flex: 1 },
+  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  backButton: { color: "#1ED760", marginTop: 10, marginBottom: 50, padding: 5, fontSize: 20 },
   buttons: { backgroundColor: "#1ED760", paddingVertical: 20, paddingHorizontal: 60, margin: 10, borderRadius: 8 },
   buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
   modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.6)" },

@@ -24,6 +24,7 @@ import {
   View
 } from "react-native";
 import { db } from "./services/firebase"; // your Firestore config
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Join() {
   const router = useRouter();
@@ -197,7 +198,7 @@ export default function Join() {
   };
 
   return (
-    <View style={styles.wrapper}>
+    <SafeAreaView style={styles.wrapper}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -278,7 +279,7 @@ export default function Join() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -287,14 +288,12 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   contentContainer: {
     alignItems: "center",
-    padding: 20,
-    paddingTop: 40,
+    paddingHorizontal: 20,
     paddingBottom: 120,
   },
   head: {
     fontSize: 50,
     fontFamily: "Orbitron-Medium",
-    paddingTop: 30,
     color: "#FFFFFF",
     textAlign: "center",
   },

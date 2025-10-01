@@ -6,7 +6,6 @@ import {
   getDoc,
   onSnapshot,
   runTransaction,
-  setDoc,
   updateDoc
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
@@ -24,6 +23,7 @@ import {
 } from "react-native";
 import { auth, db } from "./services/firebase";
 import { getRandomTrack } from "./utils/helpers";
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Game() {
   const router = useRouter();
@@ -285,7 +285,7 @@ export default function Game() {
     "https://via.placeholder.com/50";
 
   return (
-    <View style={styles.backgroundStyle}>
+    <SafeAreaView style={styles.backgroundStyle}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS !== "web" ? "padding" : undefined}
@@ -422,13 +422,13 @@ export default function Game() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   backgroundStyle: { flex: 1, backgroundColor: "#121212" },
-  container: { flex: 1, padding: 20, paddingTop: 65 },
+  container: { flex: 1, paddingHorizontal: 16 },
   head: {
     fontSize: 50,
     fontFamily: "Orbitron-Medium",
@@ -465,7 +465,7 @@ const styles = StyleSheet.create({
   },
   senderName: { fontSize: 10, color: "#aaa", marginBottom: 1 },
   chatMessage: { fontSize: 18, color: "#fff" },
-  chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 10, marginBottom: 30 },
+  chatInputRow: { flexDirection: "row", alignItems: "center", marginTop: 10, marginBottom: 10 },
   textInput: {
     flex: 1,
     height: 50,

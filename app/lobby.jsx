@@ -6,7 +6,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-nati
 import { auth, db } from "./services/firebase";
 import * as spotify from "./services/spotify";
 import { Image } from "react-native";
-
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const FRIENDLY_NAMES = [
   "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
@@ -192,60 +192,62 @@ export default function Join() {
 
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Text style={styles.head}>OFF BEAT</Text>
-      <View style={styles.lobbyHeader}>
-        <Text style={styles.playerTitle}>{lobbyName || "Unnamed Lobby"}</Text>
-        <Text style={styles.code}>[{gameId || "no-code"}]</Text>
-      </View>
-      <View style={styles.playersContainer}>
-        {Object.keys(players).length === 0 ? (
-          <Text style={{ color: "#aaa", textAlign: "center" }}>Waiting for players...</Text>
-        ) : (
-          Object.entries(players).map(([playerId, playerData], index) => {
-            if (!playerData.alive) return;
-            const isMe = String(playerId) === String(currentUserId);
-            return (
-              <View key={index} style={styles.playerRow}>
-                <Text style={styles.playerItem}>
-                  {`${playerData.name}${isMe ? " (You)" : ""} `}
-                </Text>
-                {isHost && <TouchableOpacity onPress={() => handleKickPlayer(playerId)}>
-                  <Image source={require("../assets/images/remove.png")} style={{ width: 20, height: 20 }} />
-                </TouchableOpacity>}
-              </View>
-            );
-          })
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        <Text style={styles.head}>OFF BEAT</Text>
+        <View style={styles.lobbyHeader}>
+          <Text style={styles.playerTitle}>{lobbyName || "Unnamed Lobby"}</Text>
+          <Text style={styles.code}>[{gameId || "no-code"}]</Text>
+        </View>
+        <View style={styles.playersContainer}>
+          {Object.keys(players).length === 0 ? (
+            <Text style={{ color: "#aaa", textAlign: "center" }}>Waiting for players...</Text>
+          ) : (
+            Object.entries(players).map(([playerId, playerData], index) => {
+              if (!playerData.alive) return;
+              const isMe = String(playerId) === String(currentUserId);
+              return (
+                <View key={index} style={styles.playerRow}>
+                  <Text style={styles.playerItem}>
+                    {`${playerData.name}${isMe ? " (You)" : ""} `}
+                  </Text>
+                  {isHost && <TouchableOpacity onPress={() => handleKickPlayer(playerId)}>
+                    <Image source={require("../assets/images/remove.png")} style={{ width: 20, height: 20 }} />
+                  </TouchableOpacity>}
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {isHost && (
+          <TouchableOpacity
+            disabled={!canStart}
+            style={[
+              styles.submitButton,
+              { backgroundColor: canStart ? "#1ED760" : "#6f6f6fff" },
+            ]}
+            onPress={handleStartGame}
+          >
+            <Text style={[styles.buttonStart, { color: canStart ? "#fff" : "#fff" }]}>
+              {canStart ? "START GAME" : "WAITING FOR PLAYERS"}
+            </Text>
+          </TouchableOpacity>
         )}
-      </View>
 
-      {isHost && (
-        <TouchableOpacity
-          disabled={!canStart}
-          style={[
-            styles.submitButton,
-            { backgroundColor: canStart ? "#1ED760" : "#6f6f6fff" },
-          ]}
-          onPress={handleStartGame}
-        >
-          <Text style={[styles.buttonStart, { color: canStart ? "#fff" : "#fff" }]}>
-            {canStart ? "START GAME" : "WAITING FOR PLAYERS"}
-          </Text>
+        <TouchableOpacity onPress={leaveLobby}>
+          <Text style={styles.backButton}>LEAVE</Text>
         </TouchableOpacity>
-      )}
-
-      <TouchableOpacity onPress={leaveLobby}>
-        <Text style={styles.backButton}>LEAVE</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 0.9, backgroundColor: "#121212" },
-  contentContainer: { alignItems: "center", padding: 20 },
+  container: { flex: 1, backgroundColor: "#121212" },
+  contentContainer: { alignItems: "center", padding: 20, paddingTop: 0 },
 
-  head: { marginTop: 40, fontSize: 50, fontFamily: 'Orbitron-Medium', padding: 20, color: "#FFFFFF", textAlign: "center" },
+  head: { fontSize: 50, fontFamily: 'Orbitron-Medium', color: "#FFFFFF", textAlign: "center" },
   playersContainer: { borderColor: "#1EF760", borderBottomWidth: 2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8, paddingLeft: 20, paddingRight: 20 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
   playerTitle: { paddingTop: 15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },
