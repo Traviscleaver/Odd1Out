@@ -222,7 +222,7 @@ export default function Join() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: "#121212" },
+  wrapper: { flex: 1, backgroundColor: "#121212", flexGrow: 1 },
   container: { flex: 1 },
   contentContainer: {
     alignItems: "center",
