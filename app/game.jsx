@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
+  BackHandler,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -130,6 +131,15 @@ export default function Game() {
       flatListRef.current.scrollToEnd({ animated: true });
     }
   }, [messages]);
+
+  // Hook into native back button
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      leaveLobby();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
 
   // Vote modal
   useEffect(() => {
@@ -260,6 +270,7 @@ export default function Game() {
 
   const leaveLobby = async () => {
     app.back();
+    app.user.game_id = null;
     if (!gameId || !app.user.uid) return;
     const gameRef = doc(db, "games", gameId);
     await updateDoc(gameRef, { [`players.${app.user.uid}`]: deleteField() });

@@ -1,7 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { BackHandler, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from "./services/firebase";
 import * as spotify from "./services/spotify";
@@ -16,7 +16,7 @@ const FRIENDLY_NAMES = [
 export default function Join() {
   const app = useApp();
   const params = useLocalSearchParams();
-  const { lobbyName: paramLobbyName, gameId: paramGameId, hostId: paramHostId, userId: paramUserId, status: lobbyStatus } = params;
+  const { lobbyName: paramLobbyName, gameId: paramGameId, hostId: paramHostId, status: lobbyStatus } = params;
   const [lobbyName, setLobbyName] = useState(paramLobbyName || "");
   const [gameId, setGameId] = useState(app.user.game_id || paramGameId || "");
   const [players, setPlayers] = useState([]);
@@ -124,6 +124,15 @@ export default function Join() {
     }
   }, [players]);
 
+  // Hook into native back button
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      leaveLobby();
+      return true;
+    });
+    return () => sub.remove();
+  }, []);
+
   // Remove user from players when leaving
   const leaveLobby = async () => {
     try {
@@ -149,6 +158,7 @@ export default function Join() {
     } catch (e) {
       console.warn("Error removing user from players on leave:", e);
     } finally {
+      app.user.game_id = null;
       app.back();
     }
   };
