@@ -140,10 +140,15 @@ export async function refreshToken() {
     const refresh_token = getValue("spotify-refresh-token")
     if (!refresh_token) return false;
 
-    const tokenResponse = await refreshAsync({
-        clientId,
-        refreshToken: refresh_token,
-    }, discovery)
+    try {
+        var tokenResponse = refreshAsync({
+            clientId,
+            refreshToken: refresh_token,
+        }, discovery)
+    } catch (e) {
+        console.log("Error refreshing token:", e);
+        return false;
+    }
 
     if (!tokenResponse.accessToken) {
         return false;
