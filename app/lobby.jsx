@@ -25,8 +25,7 @@ export default function Join() {
   const [hostId, setHostId] = useState(paramHostId);
   const [isHost, setIsHost] = useState(String(app.user.uid) === String(paramHostId));
   const snapshotUnsubRef = useRef(null);
-
-  const topTracks = spotify.refreshAndGetToken().then(spotify.getTracks); // promise
+  const [topTracks, setTopTracks] = useState([]);
 
   useEffect(() => {
     if (app.user.uid && hostId)
@@ -37,7 +36,7 @@ export default function Join() {
   useEffect(() => {
     const func = async () => {
       if (status === "playing" && players[app.user.uid]?.alive) {
-        const data = { [`players.${app.user.uid}.topTracks`]: await topTracks }
+        const data = { [`players.${app.user.uid}.topTracks`]: topTracks }
         updateDoc(doc(db, "games", gameId), data, { merge: true });
         app.user.game_id = gameId;
         app.goTo({
@@ -124,8 +123,10 @@ export default function Join() {
     }
   }, [players]);
 
-  // Hook into native back button
   useEffect(() => {
+    spotify.refreshAndGetToken().then(spotify.getTracks).then(setTopTracks);
+
+    // Hook into native back button
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       leaveLobby();
       return true;
