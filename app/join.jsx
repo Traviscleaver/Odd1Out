@@ -14,6 +14,7 @@ import {
   Animated,
   Easing,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -222,7 +223,7 @@ export default function Join() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: "#121212", flexGrow: 1 },
+  wrapper: { flex: 1, backgroundColor: "#121212", maxHeight: "100vh" },
   container: { flex: 1 },
   contentContainer: {
     alignItems: "center",
