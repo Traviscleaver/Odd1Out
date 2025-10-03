@@ -1,12 +1,11 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { arrayRemove, collection, deleteDoc, deleteField, doc, getDoc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
+import { collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from "./services/firebase";
 import * as spotify from "./services/spotify";
-import { Image } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 const FRIENDLY_NAMES = [
   "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
@@ -247,7 +246,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#121212" },
   contentContainer: { alignItems: "center", padding: 20, paddingTop: 0 },
 
-  head: { fontSize: 50, fontFamily: 'Orbitron-Medium', color: "#FFFFFF", textAlign: "center" },
+  head: { fontSize: 50, fontFamily: 'Orbitron-Medium', color: "#FFFFFF", textAlign: "center",paddingTop:20,paddingBottom:40 },
   playersContainer: { borderColor: "#1EF760", borderBottomWidth: 2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8, paddingLeft: 20, paddingRight: 20 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
   playerTitle: { paddingTop: 15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },

@@ -21,9 +21,9 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from "./services/firebase";
 import { getRandomTrack } from "./utils/helpers";
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Game() {
   const router = useRouter();
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     fontSize: 50,
     fontFamily: "Orbitron-Medium",
     padding: 20,
-    paddingTop: 0,
+    paddingTop: 20,
     color: "#FFFFFF",
     textAlign: "center"
   },

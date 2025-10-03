@@ -1,7 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import {
-  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -9,7 +8,7 @@ import {
   onSnapshot,
   query,
   updateDoc,
-  where,
+  where
 } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -23,8 +22,8 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
-import { db } from "./services/firebase"; // your Firestore config
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { db } from "./services/firebase"; // your Firestore config
 
 export default function Join() {
   const router = useRouter();
@@ -293,6 +292,8 @@ const styles = StyleSheet.create({
   },
   head: {
     fontSize: 50,
+    paddingTop:20,
+    paddingBottom:40,
     fontFamily: "Orbitron-Medium",
     color: "#FFFFFF",
     textAlign: "center",

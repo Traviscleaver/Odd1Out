@@ -11,9 +11,9 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from "./services/firebase";
 import { generateGameCode } from "./utils/helpers";
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function Index() {
   const router = useRouter();
@@ -89,7 +89,7 @@ export default function Index() {
 
   return (
     <SafeAreaView style={styles.wrapper}>
-      <Text style={styles.header}>OFF BEAT</Text>
+
       <View style={styles.container} >
         <Text style={{ ...styles.header, paddingBottom: 200 }}>PLAY</Text>
         <TouchableOpacity
@@ -191,7 +191,7 @@ export default function Index() {
 }
 
 const styles = StyleSheet.create({
-  header: { fontSize: 50, color: "#FFFFFF", fontFamily: 'Orbitron-Medium', alignSelf: "center" },
+  header: { fontSize: 50, color: "#FFFFFF", fontFamily: 'Orbitron-Medium', alignSelf: "center" , paddingTop:20},
   wrapper: { backgroundColor: "#121212", flex: 1 },
   container: { flex: 1, justifyContent: "center", alignItems: "center" },
   backButton: { color: "#1ED760", marginTop: 10, marginBottom: 50, padding: 5, fontSize: 20 },
