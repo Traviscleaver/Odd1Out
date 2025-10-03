@@ -123,7 +123,7 @@ export default function Game() {
     };
 
     pickSong();
-  }, [gameId, app.user.uid, playerName]);
+  }, [gameId, app.user.uid]);
 
   // Scroll chat
   useEffect(() => {
