@@ -90,6 +90,7 @@ export default function Join() {
             lobbyName: data.lobbyName,
             players: Object.keys(data.players),
             maxPlayers,
+            topic: data.topic || "No topic", // ← Added topic
           });
         }
       });
@@ -221,7 +222,10 @@ export default function Join() {
           ) : (
             lobbies.map((lobby) => (
               <View key={lobby.id} style={styles.lobbyRow}>
-                <Text style={styles.lobbyName}>{lobby.lobbyName}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lobbyName}>{lobby.lobbyName}</Text>
+                  <Text style={styles.lobbyTopic}>{lobby.topic}</Text> {/* ← Display topic */}
+                </View>
                 <Text style={styles.playersCount}>
                   {lobby.players.length}/{lobby.maxPlayers}
                 </Text>
@@ -292,8 +296,8 @@ const styles = StyleSheet.create({
   },
   head: {
     fontSize: 50,
-    paddingTop:20,
-    paddingBottom:40,
+    paddingTop: 20,
+    paddingBottom: 40,
     fontFamily: "Orbitron-Medium",
     color: "#FFFFFF",
     textAlign: "center",
@@ -332,7 +336,6 @@ const styles = StyleSheet.create({
   refreshIcon: {
     width: 24,
     height: 24,
-
     tintColor: "#1ED760",
   },
   lobbyRow: {
@@ -346,6 +349,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   lobbyName: { color: "#fff", fontSize: 16, flex: 1 },
+  lobbyTopic: { color: "#aaa", fontSize: 14, marginTop: 3 }, // ← New style for topic
   playersCount: { color: "#ccc", fontSize: 14, marginRight: 15 },
   joinButton: {
     backgroundColor: "#1ED760",
