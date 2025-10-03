@@ -1,9 +1,8 @@
-import { useRouter } from "expo-router";
-import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Dimensions, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth } from "./services/firebase";
 import * as Spotify from "./services/spotify";
+import { useApp } from "./_layout";
 
 
 const { width, height } = Dimensions.get("window");
@@ -85,28 +84,14 @@ function FallingEmoji({ emoji, delay, size }) {
 
 
 export default function Index() {
-  const router = useRouter();
-  const [user, setUser] = useState(null);
+  const app = useApp();
   const [spotify_linked, setSpotifyLinked] = useState(Spotify.checkTokenStatus() > 0);
 
   useEffect(() => {
-    signInAnonymously(auth)
-      .then(() => console.log("Signed in anonymously"))
-      .catch((error) => console.error("Sign-in error:", error));
-
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        console.log("User ID:", currentUser.uid);
-      }
-    });
-
     Spotify.validateAndRefreshToken().then(setSpotifyLinked);
-
-    return () => unsubscribe();
   }, []);
 
-  const emojis = ["🎶","🎵",];
+  const emojis = ["🎶", "🎵",];
   const totalEmojis = 100;
 
   return (
@@ -126,7 +111,7 @@ export default function Index() {
 
       <TouchableOpacity
         onPress={() => {
-          if (!user) {
+          if (!app.user.uid) {
             alert("Signing in... Please wait.");
             return;
           }
@@ -136,14 +121,14 @@ export default function Index() {
             return;
           }
 
-          router.push({ pathname: "/play", params: { uid: auth.currentUser.uid } });
+          app.goTo({ pathname: "/play", params: { uid: auth.currentUser.uid } });
         }}
         style={spotify_linked ? styles.buttons : styles.disabledButton}
       >
         <Text style={styles.buttonText}>PLAY</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push("/settings")} style={styles.buttons}>
+      <TouchableOpacity onPress={() => app.goTo("/settings")} style={styles.buttons}>
         <Text style={styles.buttonText}>CONFIGURE</Text>
       </TouchableOpacity>
     </View>

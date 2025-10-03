@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
@@ -16,9 +15,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "./services/firebase";
 import { generateGameCode } from "./utils/helpers";
+import { useApp } from "./_layout";
 
 export default function Play() {
-  const router = useRouter();
+  const app = useApp();
 
   const [user, setUser] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
@@ -110,7 +110,7 @@ export default function Play() {
     console.log("Game created with ID:", gameId);
     setModalVisible(false);
 
-    router.push({
+    app.goTo({
       pathname: "/lobby",
       params: {
         lobbyName: gameData.lobbyName,
@@ -140,7 +140,7 @@ export default function Play() {
         <Text style={{ ...styles.header, paddingBottom: 200 }}>PLAY</Text>
 
         <TouchableOpacity
-          onPress={() => router.push("/join")}
+          onPress={() => app.goTo("/join")}
           style={styles.buttons}
         >
           <Text style={styles.buttonText}>JOIN LOBBY</Text>
@@ -153,7 +153,7 @@ export default function Play() {
           <Text style={styles.buttonText}>CREATE LOBBY</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={() => app.back()}>
           <Text style={styles.backButton}>BACK</Text>
         </TouchableOpacity>
 
@@ -189,7 +189,7 @@ export default function Play() {
                 maxLength={15}
                 returnKeyType="done"
                 blurOnSubmit={true} // dismiss keyboard
-                onSubmitEditing={() => {}} // do nothing on Enter
+                onSubmitEditing={() => { }} // do nothing on Enter
               />
 
               {!!lobbyNameError && (

@@ -1,10 +1,10 @@
-import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { checkTokenStatus, clearSpotifyToken, promptSpotifyLogin, webGetSpotifyToken } from "./services/spotify";
+import { useApp } from "./_layout";
 
 export default function Index() {
-  const router = useRouter();
+  const app = useApp();
   const [spotifyTimeRemaining, setSpotifyTime] = useState(0);
 
   const handleJoinSpotify = async () => {
@@ -35,7 +35,7 @@ export default function Index() {
           <Text style={styles.submitButtonText}>LINK SPOTIFY</Text>
         </TouchableOpacity>
       }
-      <TouchableOpacity onPress={router.back}>
+      <TouchableOpacity onPress={app.back}>
         <Text style={styles.backButton}>BACK</Text>
       </TouchableOpacity>
     </View >

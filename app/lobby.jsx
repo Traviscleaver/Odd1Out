@@ -1,11 +1,11 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
+import { useLocalSearchParams } from "expo-router";
 import { collection, deleteDoc, deleteField, doc, getDocs, onSnapshot, query, updateDoc, where } from "firebase/firestore";
 import { useEffect, useRef, useState } from "react";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth, db } from "./services/firebase";
+import { db } from "./services/firebase";
 import * as spotify from "./services/spotify";
+import { useApp } from "./_layout";
 
 const FRIENDLY_NAMES = [
   "Sunshine", "Bubbles", "Rocket", "Cherry", "Panda",
@@ -14,43 +14,33 @@ const FRIENDLY_NAMES = [
 ];
 
 export default function Join() {
-  const router = useRouter();
+  const app = useApp();
   const params = useLocalSearchParams();
   const { lobbyName: paramLobbyName, gameId: paramGameId, hostId: paramHostId, userId: paramUserId, status: lobbyStatus } = params;
   const [lobbyName, setLobbyName] = useState(paramLobbyName || "");
-  const [gameId, setGameId] = useState(paramGameId || "");
+  const [gameId, setGameId] = useState(app.user.game_id || paramGameId || "");
   const [players, setPlayers] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(paramUserId || null);
   const [addedToPlayers, setAddedToPlayers] = useState(false);
   const [status, setStatus] = useState(lobbyStatus || "waiting");
   const [hostId, setHostId] = useState(paramHostId);
-  const [isHost, setIsHost] = useState(String(currentUserId) === String(paramHostId));
+  const [isHost, setIsHost] = useState(String(app.user.uid) === String(paramHostId));
   const snapshotUnsubRef = useRef(null);
 
   const topTracks = spotify.refreshAndGetToken().then(spotify.getTracks); // promise
 
-  // Get current user ID if not passed
   useEffect(() => {
-    if (currentUserId) return;
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) setCurrentUserId(u.uid);
-      setIsHost(String(u.uid) === String(hostId));
-    });
-    return unsub;
-  }, [currentUserId]);
-
-  useEffect(() => {
-    if (currentUserId && hostId)
-      setIsHost(String(currentUserId) === String(hostId));
-  }, [currentUserId, hostId]);
+    if (app.user.uid && hostId)
+      setIsHost(String(app.user.uid) === String(hostId));
+  }, [app.user.uid, hostId]);
 
   // Navigate to game when status changes to playing
   useEffect(() => {
     const func = async () => {
-      if (status === "playing" && players[currentUserId]?.alive) {
-        const data = { [`players.${currentUserId}.topTracks`]: await topTracks }
+      if (status === "playing" && players[app.user.uid]?.alive) {
+        const data = { [`players.${app.user.uid}.topTracks`]: await topTracks }
         updateDoc(doc(db, "games", gameId), data, { merge: true });
-        router.replace({
+        app.user.game_id = gameId;
+        app.goTo({
           pathname: "/game",
           params: { gameId, lobbyName },
         });
@@ -111,25 +101,25 @@ export default function Join() {
 
   // Add current user to players array once
   useEffect(() => {
-    if (!gameId || !currentUserId || addedToPlayers) return;
+    if (!gameId || !app.user.uid || addedToPlayers) return;
 
     const addSelf = async () => {
       try {
         const gameRef = doc(db, "games", gameId);
         const randomName = FRIENDLY_NAMES[Math.floor(Math.random() * FRIENDLY_NAMES.length)];
-        await updateDoc(gameRef, { [`players.${currentUserId}`]: { alive: true, name: randomName } }, { merge: true });
+        await updateDoc(gameRef, { [`players.${app.user.uid}`]: { alive: true, name: randomName } }, { merge: true });
         setAddedToPlayers(true);
       } catch (e) {
         console.error("Error adding self to players:", e);
       }
     };
     addSelf();
-  }, [gameId, currentUserId, addedToPlayers]);
+  }, [gameId, app.user.uid, addedToPlayers]);
 
   useEffect(() => {
-    if (!gameId || !currentUserId || !players[currentUserId]) return;
+    if (!gameId || !app.user.uid || !players[app.user.uid]) return;
 
-    if (!players[currentUserId].alive) {
+    if (!players[app.user.uid].alive) {
       leaveLobby().then(() => alert("Kicked", "You were kicked from the lobby.", [{ text: "OK" }]));
     }
   }, [players]);
@@ -137,12 +127,12 @@ export default function Join() {
   // Remove user from players when leaving
   const leaveLobby = async () => {
     try {
-      if (gameId && currentUserId) {
+      if (gameId && app.user.uid) {
         const gameRef = doc(db, "games", gameId);
 
-        if (currentUserId === hostId) {
+        if (app.user.uid === hostId) {
           const newHostId = Object.keys(players)
-            .filter((id) => currentUserId === id)
+            .filter((id) => app.user.uid === id)
             .filter((id) => players[id]?.alive)[0];
 
           if (newHostId) {
@@ -153,13 +143,13 @@ export default function Join() {
         if (Object.keys(players).length <= 1) {
           await deleteDoc(gameRef);
         } else {
-          await updateDoc(gameRef, { [`players.${currentUserId}`]: deleteField() }, { merge: true });
+          await updateDoc(gameRef, { [`players.${app.user.uid}`]: deleteField() }, { merge: true });
         }
       }
     } catch (e) {
       console.warn("Error removing user from players on leave:", e);
     } finally {
-      router.back();
+      app.back();
     }
   };
 
@@ -204,7 +194,7 @@ export default function Join() {
           ) : (
             Object.entries(players).map(([playerId, playerData], index) => {
               if (!playerData.alive) return;
-              const isMe = String(playerId) === String(currentUserId);
+              const isMe = String(playerId) === String(app.user.uid);
               return (
                 <View key={index} style={styles.playerRow}>
                   <Text style={styles.playerItem}>
@@ -246,7 +236,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#121212" },
   contentContainer: { alignItems: "center", padding: 20, paddingTop: 0 },
 
-  head: { fontSize: 50, fontFamily: 'Orbitron-Medium', color: "#FFFFFF", textAlign: "center",paddingTop:20,paddingBottom:40 },
+  head: { fontSize: 50, fontFamily: 'Orbitron-Medium', color: "#FFFFFF", textAlign: "center", paddingTop: 20, paddingBottom: 40 },
   playersContainer: { borderColor: "#1EF760", borderBottomWidth: 2, padding: 15, marginTop: 5, marginBottom: 20, width: "100%", elevation: 8, paddingLeft: 20, paddingRight: 20 },
   lobbyHeader: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginBottom: 10 },
   playerTitle: { paddingTop: 15, fontSize: 30, fontWeight: "bold", color: "#fff", marginRight: 10, textAlign: "center" },

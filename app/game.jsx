@@ -1,5 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { onAuthStateChanged } from "firebase/auth";
+import { useLocalSearchParams } from "expo-router";
 import {
   deleteField,
   doc,
@@ -24,14 +23,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { auth, db } from "./services/firebase";
 import { getRandomTrack } from "./utils/helpers";
+import { useApp } from "./_layout";
 
 export default function Game() {
-  const router = useRouter();
+  const app = useApp();
   const params = useLocalSearchParams();
-  const { gameId: paramGameId } = params;
+  // const { gameId: paramGameId } = params;
 
-  const [gameId, setGameId] = useState(paramGameId || "");
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const [gameId, setGameId] = useState(app.user.game_id || "");
   const [playerName, setPlayerName] = useState("");
   const [gameData, setGameData] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -41,7 +40,7 @@ export default function Game() {
 
   const flatListRef = useRef(null);
   const players = gameData?.players || {};
-  const alive = currentUserId && players[currentUserId]?.alive;
+  const alive = app.user.uid && players[app.user.uid]?.alive;
   const voteSession = gameData?.voteSession || null;
 
   // --- Load shared song from Firestore when gameData updates ---
@@ -52,15 +51,6 @@ export default function Game() {
       setCurrentSong(null);
     }
   }, [gameData]);
-
-  // Auth
-  useEffect(() => {
-    if (currentUserId) return;
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) setCurrentUserId(u.uid);
-    });
-    return unsub;
-  }, [currentUserId]);
 
   // Game data updates
   useEffect(() => {
@@ -85,7 +75,7 @@ export default function Game() {
 
   // Pick one random song
   useEffect(() => {
-    if (!gameId || !currentUserId) return;
+    if (!gameId || !app.user.uid) return;
 
     const pickSong = async () => {
       const gameRef = doc(db, "games", gameId);
@@ -93,7 +83,7 @@ export default function Game() {
       const snap = await getDoc(gameRef);
       if (snap.exists()) {
         const data = snap.data();
-        setPlayerName(data.players[currentUserId].name);
+        setPlayerName(data.players[app.user.uid].name);
       }
 
 
@@ -132,7 +122,7 @@ export default function Game() {
     };
 
     pickSong();
-  }, [gameId, currentUserId, playerName]);
+  }, [gameId, app.user.uid, playerName]);
 
   // Scroll chat
   useEffect(() => {
@@ -147,15 +137,15 @@ export default function Game() {
   }, [voteSession?.active, alive]);
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !currentUserId) return;
+    if (!newMessage.trim() || !app.user.uid) return;
     const gameRef = doc(db, "games", gameId);
     const snap = await getDoc(gameRef);
     if (!snap.exists()) return;
 
     const newMsg = {
       id: Date.now().toString(),
-      senderId: currentUserId,
-      senderName: players[currentUserId]?.name || playerName,
+      senderId: app.user.uid,
+      senderName: players[app.user.uid]?.name || playerName,
       text: newMessage.trim()
     };
 
@@ -166,7 +156,7 @@ export default function Game() {
 
   const callForVote = async () => {
     // guard: do nothing if spectating or missing data
-    if (!gameId || !currentUserId || !alive) return;
+    if (!gameId || !app.user.uid || !alive) return;
     const gameRef = doc(db, "games", gameId);
 
     await runTransaction(db, async (transaction) => {
@@ -177,11 +167,11 @@ export default function Game() {
         (pid) => data.players[pid].alive
       );
       const votedPlayers = data.callVoteList || [];
-      const hasVoted = votedPlayers.includes(currentUserId);
+      const hasVoted = votedPlayers.includes(app.user.uid);
 
       const updatedCallVoteList = hasVoted
-        ? votedPlayers.filter((pid) => pid !== currentUserId)
-        : [...votedPlayers, currentUserId];
+        ? votedPlayers.filter((pid) => pid !== app.user.uid)
+        : [...votedPlayers, app.user.uid];
 
       const newCallVoteCount = updatedCallVoteList.length;
 
@@ -209,7 +199,7 @@ export default function Game() {
   };
 
   const castVote = async (targetId) => {
-    if (!gameId || !currentUserId) return;
+    if (!gameId || !app.user.uid) return;
     const gameRef = doc(db, "games", gameId);
 
     await runTransaction(db, async (transaction) => {
@@ -219,13 +209,13 @@ export default function Game() {
       const data = snap.data();
       const session = data.voteSession;
       if (!session?.active) return;
-      if (session.voted[currentUserId]) return;
+      if (session.voted[app.user.uid]) return;
 
       const votes = { ...session.votes };
       const voted = { ...session.voted };
 
       votes[targetId] = (votes[targetId] || 0) + 1;
-      voted[currentUserId] = true;
+      voted[app.user.uid] = true;
 
       transaction.update(gameRef, {
         "voteSession.votes": votes,
@@ -269,15 +259,15 @@ export default function Game() {
   };
 
   const leaveLobby = async () => {
-    if (!gameId || !currentUserId) return;
+    app.back();
+    if (!gameId || !app.user.uid) return;
     const gameRef = doc(db, "games", gameId);
-    await updateDoc(gameRef, { [`players.${currentUserId}`]: deleteField() });
-    router.back();
+    await updateDoc(gameRef, { [`players.${app.user.uid}`]: deleteField() });
   };
 
   const callVoteCount = gameData?.callVoteList?.length || 0;
   const aliveCount = Object.values(players).filter(p => p.alive).length;
-  const currentPlayerVoted = gameData?.callVoteList?.includes(currentUserId);
+  const currentPlayerVoted = gameData?.callVoteList?.includes(app.user.uid);
 
   const imageUri =
     currentSong?.albumCover ??
@@ -339,10 +329,10 @@ export default function Game() {
                       key={pid}
                       style={[styles.voteButton, styles.voteButtonModal]}
                       onPress={() => castVote(pid)}
-                      disabled={voteSession?.voted?.[currentUserId]}
+                      disabled={voteSession?.voted?.[app.user.uid]}
                     >
                       <Text style={{ color: "#fff", fontWeight: "bold" }}>
-                        {players[pid].name + (currentUserId == pid ? " (You)" : "")}
+                        {players[pid].name + (app.user.uid == pid ? " (You)" : "")}
                       </Text>
                       <Text style={{ color: "#fff", fontWeight: "bold" }}>
                         ({votesCount})
@@ -354,7 +344,7 @@ export default function Game() {
               <TouchableOpacity
                 style={[styles.voteButton, styles.voteButtonModal]}
                 onPress={() => castVote("skip")}
-                disabled={voteSession?.voted?.[currentUserId]}
+                disabled={voteSession?.voted?.[app.user.uid]}
               >
                 <Text style={{ color: "#fff", fontWeight: "bold" }}>Skip</Text>
                 <Text style={{ color: "#fff", fontWeight: "bold" }}>
@@ -388,7 +378,7 @@ export default function Game() {
             data={messages}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => {
-              const isOwn = item.senderId === currentUserId;
+              const isOwn = item.senderId === app.user.uid;
               return (
                 <View style={{ marginBottom: 2, alignItems: isOwn ? "flex-end" : "flex-start" }}>
                   <Text style={styles.senderName}>{item.senderName}</Text>

@@ -1,5 +1,4 @@
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth } from "firebase/auth";
 import {
   collection,
   doc,
@@ -24,19 +23,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from "./services/firebase"; // your Firestore config
+import { useApp } from "./_layout";
 
 export default function Join() {
-  const router = useRouter();
-  const { userId } = useLocalSearchParams();
+  const app = useApp();
 
   const [input, setInput] = useState("");
   const [lobbies, setLobbies] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
-
-  const [players, setPlayers] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(userId || null);
-  const [addedToPlayers, setAddedToPlayers] = useState(false);
-  const snapshotUnsubRef = useRef(null);
 
   // 🔹 Animation for refresh button
   const spinAnim = useRef(new Animated.Value(0)).current;
@@ -57,16 +51,6 @@ export default function Join() {
       useNativeDriver: true,
     }).start();
   };
-
-  // 🔹 Get auth user if not passed in params
-  useEffect(() => {
-    if (currentUserId) return;
-    const auth = getAuth();
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) setCurrentUserId(u.uid);
-    });
-    return unsub;
-  }, [currentUserId]);
 
   // 🔹 Get list of public lobbies (hide full)
   const getLobbies = async () => {
@@ -108,47 +92,6 @@ export default function Join() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔹 Subscribe to players list when in a game
-  useEffect(() => {
-    if (!userId) return;
-
-    const gameRef = doc(db, "games", userId);
-    const unsub = onSnapshot(
-      gameRef,
-      (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          setPlayers(data.players);
-        }
-      },
-      (err) => console.error("onSnapshot error:", err)
-    );
-
-    snapshotUnsubRef.current = unsub;
-    return () => {
-      if (snapshotUnsubRef.current) snapshotUnsubRef.current();
-      snapshotUnsubRef.current = null;
-    };
-  }, [userId]);
-
-  // 🔹 Add current user once
-  useEffect(() => {
-    if (!userId || !currentUserId || addedToPlayers) return;
-
-    const addSelf = async () => {
-      try {
-        const gameRef = doc(db, "games", userId);
-        await updateDoc(gameRef, {
-          [`players.${currentUserId}`]: { alive: true },
-        }, { merge: true });
-        setAddedToPlayers(true);
-      } catch (e) {
-        console.error("Error adding self to players:", e);
-      }
-    };
-    addSelf();
-  }, [userId, currentUserId, addedToPlayers]);
-
   // 🔹 Manual join with code
   const handleSubmit = async () => {
     const gameIdInput = input.trim();
@@ -158,9 +101,7 @@ export default function Join() {
     }
 
     try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) {
+      if (!app.user.uid) {
         alert("You must be signed in to join a lobby.");
         return;
       }
@@ -173,14 +114,7 @@ export default function Join() {
         return;
       }
 
-      await updateDoc(gameRef, {
-        [`players.${user.uid}`]: { alive: true },
-      }, { merge: true });
-
-      router.push({
-        pathname: "/lobby",
-        params: { gameId: gameIdInput },
-      });
+      handleJoin(gameIdInput);
 
       setInput("");
       setModalVisible(false);
@@ -190,10 +124,11 @@ export default function Join() {
     }
   };
 
-  const handleJoin = (lobbyId) => {
-    router.push({
+  const handleJoin = (gameId) => {
+    app.user.game_id = gameId;
+    app.goTo({
       pathname: "/lobby",
-      params: { gameId: lobbyId },
+      params: { gameId: gameId },
     });
   };
 
@@ -224,7 +159,7 @@ export default function Join() {
               <View key={lobby.id} style={styles.lobbyRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.lobbyName}>{lobby.lobbyName}</Text>
-                  <Text style={styles.lobbyTopic}>{lobby.topic}</Text> {/* ← Display topic */}
+                  <Text style={styles.lobbyTopic}>{lobby.topic}</Text>{/* ← Display topic */}
                 </View>
                 <Text style={styles.playersCount}>
                   {lobby.players.length}/{lobby.maxPlayers}
@@ -250,7 +185,7 @@ export default function Join() {
           <Text style={styles.submitButtonText}>Join With Code</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={router.back}>
+        <TouchableOpacity onPress={app.back}>
           <Text style={styles.backButtonMain}>Back</Text>
         </TouchableOpacity>
       </View>
